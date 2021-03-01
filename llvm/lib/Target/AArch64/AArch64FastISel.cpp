@@ -4504,23 +4504,6 @@ bool AArch64FastISel::selectIntExt(const Instruction *I) {
 
   // Try to optimize already sign-/zero-extended values from function arguments.
   bool IsZExt = isa<ZExtInst>(I);
-  if (const auto *Arg = dyn_cast<Argument>(I->getOperand(0))) {
-    if ((IsZExt && Arg->hasZExtAttr()) || (!IsZExt && Arg->hasSExtAttr())) {
-      if (RetVT == MVT::i64 && SrcVT != MVT::i64) {
-        Register ResultReg = createResultReg(&AArch64::GPR64RegClass);
-        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-                TII.get(AArch64::SUBREG_TO_REG), ResultReg)
-            .addImm(0)
-            .addReg(SrcReg)
-            .addImm(AArch64::sub_32);
-        SrcReg = ResultReg;
-      }
-
-      updateValueMap(I, SrcReg);
-      return true;
-    }
-  }
-
   unsigned ResultReg = emitIntExt(SrcVT, SrcReg, RetVT, IsZExt);
   if (!ResultReg)
     return false;
