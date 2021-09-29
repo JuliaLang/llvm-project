@@ -160,7 +160,7 @@ macro(add_clang_tool name)
     get_target_export_arg(${name} Clang export_to_clangtargets)
     install(TARGETS ${name}
       ${export_to_clangtargets}
-      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+      RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
       COMPONENT ${name})
 
     if(NOT LLVM_ENABLE_IDE)
