@@ -22,7 +22,7 @@ macro(add_lld_library name)
       ${export_to_lldtargets}
       LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
       ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-      RUNTIME DESTINATION bin)
+      RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR})
 
     if (${ARG_SHARED} AND NOT CMAKE_CONFIGURATION_TYPES)
       add_llvm_install_targets(install-${name}
@@ -54,7 +54,7 @@ macro(add_lld_tool name)
 
     install(TARGETS ${name}
       ${export_to_lldtargets}
-      RUNTIME DESTINATION bin
+      RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
       COMPONENT ${name})
 
     if(NOT CMAKE_CONFIGURATION_TYPES)
