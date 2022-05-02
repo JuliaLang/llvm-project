@@ -223,7 +223,7 @@ namespace __sanitizer {
   unsigned struct_sockaddr_sz = sizeof(struct sockaddr);
 
   unsigned ucontext_t_sz(void *ctx) {
-#    if SANITIZER_GLIBC && SANITIZER_X64
+#    if SANITIZER_GLIBC && SANITIZER_X64 &&  __GLIBC_PREREQ (2, 27)
     // Added in Linux kernel 3.4.0, merged to glibc in 2.16
 #      ifndef FP_XSTATE_MAGIC1
 #        define FP_XSTATE_MAGIC1 0x46505853U
