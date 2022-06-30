@@ -1,0 +1,29 @@
+; RUN: opt -simplifycfg -verify -S < %s | FileCheck %s
+; RUN: opt -passes=simplifycfg,verify -S < %s | FileCheck %s
+
+target datalayout = "ni:1"
+
+define void @test_01(i64 addrspace(1)* align 8 %ptr) local_unnamed_addr #0 {
+; CHECK-LABEL: @test_01(
+; CHECK-NOT:   ptrtoint
+; CHECK-NEXT:  icmp eq i64 addrspace(1)* %ptr, null
+; CHECK-NOT:   ptrtoint
+  %cond1 = icmp eq i64 addrspace(1)* %ptr, null
+  %cond2 = icmp eq i64 addrspace(1)* %ptr, null
+  br i1 %cond1, label %true1, label %false1
+
+true1:
+  br i1 %cond2, label %true2, label %false2
+
+false1:
+  store i64 1, i64 addrspace(1)* %ptr, align 8
+  br label %true1
+
+true2:
+  store i64 2, i64 addrspace(1)* %ptr, align 8
+  ret void
+
+false2:
+  store i64 3, i64 addrspace(1)* %ptr, align 8
+  ret void
+}
