@@ -920,12 +920,16 @@ void WinCOFFObjectWriter::setWeakDefaultNames() {
       break;
   }
   // If we didn't find any unique symbol to use for the names, just skip this.
-  if (!Unique)
-    return;
-  for (auto *Sym : WeakDefaults) {
-    Sym->Name.append(".");
-    Sym->Name.append(Unique->Name);
+  if (Unique) {
+    for (auto *Sym : WeakDefaults) {
+      Sym->Name.append(".");
+      Sym->Name.append(Unique->Name);
+    }
   }
+
+  // MCObjectWriter objects are often reused, so make sure we're not retaining references
+  // to symbols after having processed them (i.e. avoid use-after-frees).
+  WeakDefaults.clear();
 }
 
 static bool isAssociative(const COFFSection &Section) {
