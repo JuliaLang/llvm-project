@@ -172,6 +172,7 @@ public:
     Strings.clear();
     SectionMap.clear();
     SymbolMap.clear();
+    WeakDefaults.clear();
     MCObjectWriter::reset();
   }
 
