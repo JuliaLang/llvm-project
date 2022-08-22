@@ -17,6 +17,10 @@
 #include "sanitizer_flags.h"
 #include "sanitizer_platform_interceptors.h"
 
+#if !defined(__APPLE__)
+#include <malloc.h>
+#endif
+
 namespace __sanitizer {
 #if SANITIZER_INTERCEPT_TLS_GET_ADDR
 
@@ -140,6 +144,8 @@ DTLS::DTV *DTLS_on_tls_get_addr(void *arg_void, void *res,
     tls_size = __sanitizer_get_allocated_size(start);
     VReport(2, "__tls_get_addr: glibc >=2.25 suspected; tls={0x%zx,0x%zx}\n",
             tls_beg, tls_size);
+  } else if (uptr size = malloc_usable_size((void *)tls_beg)) {
+    tls_size = size;
   } else {
     VReport(2, "__tls_get_addr: Can't guess glibc version\n");
     // This may happen inside the DTOR of main thread, so just ignore it.
