@@ -16,7 +16,9 @@
 #include "sanitizer_flags.h"
 #include "sanitizer_platform_interceptors.h"
 
+#if !defined(__APPLE__)
 #include <malloc.h>
+#endif
 
 namespace __sanitizer {
 #if SANITIZER_INTERCEPT_TLS_GET_ADDR
