@@ -26931,6 +26931,7 @@ bool DAGCombiner::SimplifySelectOps(SDNode *TheSelect, SDValue LHS,
         !TLI.isOperationLegalOrCustom(TheSelect->getOpcode(),
                                       LLD->getBasePtr().getValueType()))
       return false;
+    return false;
 
     // The loads must not depend on one another.
     if (LLD->isPredecessorOf(RLD) || RLD->isPredecessorOf(LLD))
