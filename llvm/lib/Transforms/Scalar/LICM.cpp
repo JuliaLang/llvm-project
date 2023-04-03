@@ -159,7 +159,8 @@ static bool pointerInvalidatedByLoop(MemoryLocation MemLoc,
                                      AAResults *AA);
 static bool pointerInvalidatedByLoopWithMSSA(MemorySSA *MSSA, MemoryUse *MU,
                                              Loop *CurLoop, Instruction &I,
-                                             SinkAndHoistLICMFlags &Flags);
+                                             SinkAndHoistLICMFlags &Flags,
+                                             bool InvariantGroup);
 static bool pointerInvalidatedByBlockWithMSSA(BasicBlock &BB, MemorySSA &MSSA,
                                               MemoryUse &MU);
 static Instruction *cloneInstructionInExitBlock(
@@ -1167,14 +1168,12 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
 
     bool InvariantGroup = LI->hasMetadata(LLVMContext::MD_invariant_group);
 
-    bool Invalidated;
-    if (CurAST)
-      Invalidated = pointerInvalidatedByLoop(MemoryLocation::get(LI), CurAST,
-                                             CurLoop, AA);
-    else
-      Invalidated = pointerInvalidatedByLoopWithMSSA(
+    bool Invalidated = pointerInvalidatedByLoopWithMSSA(
           MSSA, cast<MemoryUse>(MSSA->getMemoryAccess(LI)), CurLoop, I, *Flags,
-          InvariantLoop);
+          InvariantGroup);
+    if (CurAST)
+      Invalidated &= pointerInvalidatedByLoop(MemoryLocation::get(LI), CurAST,
+                                             CurLoop, AA);
     // Check loop-invariant address because this may also be a sinkable load
     // whose address is not necessarily loop-invariant.
     if (ORE && Invalidated && CurLoop->isLoopInvariant(LI->getPointerOperand()))
