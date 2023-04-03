@@ -1165,13 +1165,16 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
     if (isLoadInvariantInLoop(LI, DT, CurLoop))
       return true;
 
+    bool InvariantGroup = LI->hasMetadata(LLVMContext::MD_invariant_group);
+
     bool Invalidated;
     if (CurAST)
       Invalidated = pointerInvalidatedByLoop(MemoryLocation::get(LI), CurAST,
                                              CurLoop, AA);
     else
       Invalidated = pointerInvalidatedByLoopWithMSSA(
-          MSSA, cast<MemoryUse>(MSSA->getMemoryAccess(LI)), CurLoop, I, *Flags);
+          MSSA, cast<MemoryUse>(MSSA->getMemoryAccess(LI)), CurLoop, I, *Flags,
+          InvariantLoop);
     // Check loop-invariant address because this may also be a sinkable load
     // whose address is not necessarily loop-invariant.
     if (ORE && Invalidated && CurLoop->isLoopInvariant(LI->getPointerOperand()))
@@ -1227,7 +1230,7 @@ bool llvm::canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
             else
               Invalidated = pointerInvalidatedByLoopWithMSSA(
                   MSSA, cast<MemoryUse>(MSSA->getMemoryAccess(CI)), CurLoop, I,
-                  *Flags);
+                  *Flags, false);
             if (Invalidated)
               return false;
           }
@@ -2301,7 +2304,8 @@ static bool pointerInvalidatedByLoop(MemoryLocation MemLoc,
 
 bool pointerInvalidatedByLoopWithMSSA(MemorySSA *MSSA, MemoryUse *MU,
                                       Loop *CurLoop, Instruction &I,
-                                      SinkAndHoistLICMFlags &Flags) {
+                                      SinkAndHoistLICMFlags &Flags,
+                                      bool InvariantGroup) {
   // For hoisting, use the walker to determine safety
   if (!Flags.getIsSink()) {
     MemoryAccess *Source;
@@ -2313,7 +2317,8 @@ bool pointerInvalidatedByLoopWithMSSA(MemorySSA *MSSA, MemoryUse *MU,
       Flags.incrementClobberingCalls();
     }
     return !MSSA->isLiveOnEntryDef(Source) &&
-           CurLoop->contains(Source->getBlock());
+           CurLoop->contains(Source->getBlock()) &&
+           !(InvariantGroup && Source->getBlock() == CurLoop->getHeader() && isa<MemoryPhi>(Source));
   }
 
   // For sinking, we'd need to check all Defs below this use. The getClobbering
