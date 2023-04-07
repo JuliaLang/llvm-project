@@ -2315,6 +2315,7 @@ bool pointerInvalidatedByLoopWithMSSA(MemorySSA *MSSA, MemoryUse *MU,
       Source = MSSA->getSkipSelfWalker()->getClobberingMemoryAccess(MU);
       Flags.incrementClobberingCalls();
     }
+
     return !MSSA->isLiveOnEntryDef(Source) &&
            CurLoop->contains(Source->getBlock()) &&
            !(InvariantGroup && Source->getBlock() == CurLoop->getHeader() && isa<MemoryPhi>(Source));
