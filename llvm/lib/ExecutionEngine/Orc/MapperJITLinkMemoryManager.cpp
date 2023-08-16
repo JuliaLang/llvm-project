@@ -64,7 +64,8 @@ void MapperJITLinkMemoryManager::allocate(const JITLinkDylib *JD, LinkGraph &G,
   BasicLayout BL(G);
 
   // find required address space
-  auto SegsSizes = BL.getContiguousPageBasedLayoutSizes(Mapper->getPageSize());
+  auto SegsSizes = BL.getSplitPageBasedLayoutSizes(Mapper->getPageSize());
+
   if (!SegsSizes) {
     OnAllocated(SegsSizes.takeError());
     return;
@@ -72,7 +73,7 @@ void MapperJITLinkMemoryManager::allocate(const JITLinkDylib *JD, LinkGraph &G,
 
   auto TotalSize = SegsSizes->total();
 
-  auto CompleteAllocation = [this, &G, BL = std::move(BL),
+  auto CompleteAllocation = [this, &SegsSizes, &G, BL = std::move(BL),
                              OnAllocated = std::move(OnAllocated)](
                                 Expected<ExecutorAddrRange> Result) mutable {
     if (!Result) {
@@ -80,20 +81,34 @@ void MapperJITLinkMemoryManager::allocate(const JITLinkDylib *JD, LinkGraph &G,
       return OnAllocated(Result.takeError());
     }
 
-    auto NextSegAddr = Result->Start;
 
+    auto DataSegAddr = Result->Start;
+    ExecutorAddr TextSegAddr(alignDown(Result->End.getValue() - SegsSizes->TextSegs, Mapper->getPageSize()));
+    auto FinalizeSegAddr =  Result->Start + alignTo(SegsSizes->DataSegs,Mapper->getPageSize());
+    auto FinalizeSegAddrInit = FinalizeSegAddr;
+    auto TextSegAddrInit = TextSegAddr;
+    assert((FinalizeSegAddr + SegsSizes->FinalizeSegs) < (TextSegAddr, Mapper->getPageSize()) && "Not enough memory in the slab");
     std::vector<MemoryMapper::AllocInfo::SegInfo> SegInfos;
 
     for (auto &KV : BL.segments()) {
       auto &AG = KV.first;
       auto &Seg = KV.second;
-
       auto TotalSize = Seg.ContentSize + Seg.ZeroFillSize;
 
-      Seg.Addr = NextSegAddr;
-      Seg.WorkingMem = Mapper->prepare(NextSegAddr, TotalSize);
+      ExecutorAddr *CurrAddr;
+      if (AG.getMemDeallocPolicy() == orc::MemDeallocPolicy::Standard) {
+          if ((AG.getMemProt() & orc::MemProt::Exec) != orc::MemProt::None) {
+              CurrAddr = &TextSegAddr;
+          } else {
+              CurrAddr = &DataSegAddr;
+          }
+      } else {
+          CurrAddr = &FinalizeSegAddr;
+      }
 
-      NextSegAddr += alignTo(TotalSize, Mapper->getPageSize());
+      Seg.Addr = *CurrAddr;
+      Seg.WorkingMem = Mapper->prepare(*CurrAddr, TotalSize);
+      *CurrAddr += alignTo(TotalSize, Mapper->getPageSize());
 
       MemoryMapper::AllocInfo::SegInfo SI;
       SI.Offset = Seg.Addr - Result->Start;
@@ -101,15 +116,17 @@ void MapperJITLinkMemoryManager::allocate(const JITLinkDylib *JD, LinkGraph &G,
       SI.ZeroFillSize = Seg.ZeroFillSize;
       SI.AG = AG;
       SI.WorkingMem = Seg.WorkingMem;
-
       SegInfos.push_back(SI);
     }
+    assert(DataSegAddr < FinalizeSegAddrInit && "Data overwrote the finalize segment");
+    assert(FinalizeSegAddr < TextSegAddrInit && "Finalize overwrote the text segment");
+    assert(TextSegAddr < Result->End && "Text overwrote the end of the slab");
 
-    UsedMemory.insert({Result->Start, NextSegAddr - Result->Start});
-
-    if (NextSegAddr < Result->End) {
+    UsedMemory.insert({Result->Start, FinalizeSegAddr - Result->Start});
+    UsedMemory.insert({TextSegAddrInit, Result->End - TextSegAddrInit});
+    if (FinalizeSegAddr < TextSegAddrInit) {
       // Save the remaining memory for reuse in next allocation(s)
-      AvailableMemory.insert(NextSegAddr, Result->End - 1, true);
+      AvailableMemory.insert(FinalizeSegAddr, TextSegAddrInit - 1, true);
     }
     Mutex.unlock();
 
