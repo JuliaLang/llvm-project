@@ -2906,8 +2906,10 @@ Instruction *InstCombinerImpl::visitAddrSpaceCast(AddrSpaceCastInst &CI) {
   Value *Src = CI.getOperand(0);
   PointerType *SrcTy = cast<PointerType>(Src->getType()->getScalarType());
   PointerType *DestTy = cast<PointerType>(CI.getType()->getScalarType());
+  bool isni = DL.isNonIntegralAddressSpace(SrcTy->getAddressSpace()) ||
+              DL.isNonIntegralAddressSpace(DestTy->getAddressSpace());
 
-  if (!SrcTy->hasSameElementTypeAs(DestTy)) {
+  if (!SrcTy->hasSameElementTypeAs(DestTy) && !isni) {
     Type *MidTy =
         PointerType::getWithSamePointeeType(DestTy, SrcTy->getAddressSpace());
     // Handle vectors of pointers.
