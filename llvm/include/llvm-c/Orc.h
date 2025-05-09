@@ -1068,7 +1068,7 @@ LLVMErrorRef LLVMOrcCreateDynamicLibrarySearchGeneratorForPath(
  */
 LLVMErrorRef LLVMOrcCreateStaticLibrarySearchGeneratorForPath(
     LLVMOrcDefinitionGeneratorRef *Result, LLVMOrcObjectLayerRef ObjLayer,
-    const char *FileName, const char *TargetTriple);
+    const char *FileName);
 
 /**
  * Create a ThreadSafeContext containing a new LLVMContext.
