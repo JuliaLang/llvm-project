@@ -241,8 +241,14 @@ public:
   struct ContiguousPageBasedLayoutSizes {
     uint64_t StandardSegs = 0;
     uint64_t FinalizeSegs = 0;
-
     uint64_t total() const { return StandardSegs + FinalizeSegs; }
+  };
+
+  struct SplitPageBasedLayoutSizes {
+    uint64_t TextSegs = 0;
+    uint64_t DataSegs = 0;
+    uint64_t FinalizeSegs = 0;
+    uint64_t total() const { return TextSegs + DataSegs + FinalizeSegs; }
   };
 
 private:
@@ -266,6 +272,9 @@ public:
   Expected<ContiguousPageBasedLayoutSizes>
   getContiguousPageBasedLayoutSizes(uint64_t PageSize);
 
+  // Same as above but returns the segments split into text, data, and finalize
+  Expected<SplitPageBasedLayoutSizes>
+  getSplitPageBasedLayoutSizes(uint64_t PageSize);
   /// Returns an iterator over the segments of the layout.
   iterator_range<SegmentMap::iterator> segments() {
     return {Segments.begin(), Segments.end()};

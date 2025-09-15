@@ -98,6 +98,31 @@ BasicLayout::getContiguousPageBasedLayoutSizes(uint64_t PageSize) {
   return SegsSizes;
 }
 
+Expected<BasicLayout::SplitPageBasedLayoutSizes>
+BasicLayout::getSplitPageBasedLayoutSizes(uint64_t PageSize) {
+  SplitPageBasedLayoutSizes SegsSizes;
+
+  for (auto &KV : segments()) {
+    auto &AG = KV.first;
+    auto &Seg = KV.second;
+
+    if (Seg.Alignment > PageSize)
+      return make_error<StringError>("Segment alignment greater than page size",
+                                     inconvertibleErrorCode());
+
+    uint64_t SegSize = alignTo(Seg.ContentSize + Seg.ZeroFillSize, PageSize);
+    if (AG.getMemDeallocPolicy() == orc::MemDeallocPolicy::Standard)
+      if ((AG.getMemProt() & orc::MemProt::Exec) != orc::MemProt::None) // Text
+        SegsSizes.TextSegs += SegSize;
+      else // Data
+        SegsSizes.DataSegs += SegSize;
+    else
+      SegsSizes.FinalizeSegs += SegSize;
+  }
+
+  return SegsSizes;
+}
+
 Error BasicLayout::apply() {
   for (auto &KV : Segments) {
     auto &Seg = KV.second;
