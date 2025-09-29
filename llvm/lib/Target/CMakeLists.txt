@@ -28,7 +28,7 @@ if (NOT BUILD_SHARED_LIBS AND NOT APPLE AND
     NOT DEFINED CMAKE_CXX_VISIBILITY_PRESET)
   # Set default visibility to hidden, so we don't export all the Target classes
   # in libLLVM.so.
-  set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+  # set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 endif()
 
 foreach(t ${LLVM_TARGETS_TO_BUILD})
