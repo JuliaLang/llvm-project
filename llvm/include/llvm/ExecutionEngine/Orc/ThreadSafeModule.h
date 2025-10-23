@@ -36,6 +36,16 @@ private:
   };
 
 public:
+  // RAII based lock for ThreadSafeContext.
+  class [[nodiscard]] Lock {
+  public:
+    Lock(std::shared_ptr<State> S) : S(std::move(S)), L(this->S->Mutex) {}
+
+  private:
+    std::shared_ptr<State> S;
+    std::unique_lock<std::recursive_mutex> L;
+  };
+
   /// Construct a null context.
   ThreadSafeContext() = default;
 
@@ -60,6 +70,19 @@ public:
       return F(const_cast<const LLVMContext *>(TmpS->Ctx.get()));
     } else
       return F((const LLVMContext *)nullptr);
+  }
+
+  /// Returns a pointer to the LLVMContext that was used to construct this
+  /// instance, or null if the instance was default constructed.
+  LLVMContext *getContext() { return S ? S->Ctx.get() : nullptr; }
+
+  /// Returns a pointer to the LLVMContext that was used to construct this
+  /// instance, or null if the instance was default constructed.
+  const LLVMContext *getContext() const { return S ? S->Ctx.get() : nullptr; }
+
+  Lock getLock() const {
+    assert(S && "Can not lock an empty ThreadSafeContext");
+    return Lock(S);
   }
 
 private:
