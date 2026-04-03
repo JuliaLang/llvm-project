@@ -142,6 +142,11 @@ static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
              cl::desc("Maximum array size considered when doing a combine"));
 
+static cl::opt<unsigned> MaxAllocSiteRemovableUsers(
+    "instcombine-max-allocsite-removable-users", cl::Hidden, cl::init(2048),
+    cl::desc("Maximum number of users to visit in alloc-site "
+             "removability analysis"));
+
 // FIXME: Remove this flag when it is no longer necessary to convert
 // llvm.dbg.declare to avoid inaccurate debug info. Setting this to false
 // increases variable availability at the cost of accuracy. Variables that
@@ -3214,7 +3219,7 @@ static bool isRemovableWrite(CallBase &CB, Value *UsedV,
 }
 
 static bool isAllocSiteRemovable(Instruction *AI,
-                                 SmallVectorImpl<WeakTrackingVH> &Users,
+                                 SmallVectorImpl<Instruction *> &Users,
                                  const TargetLibraryInfo &TLI) {
   SmallVector<Instruction*, 4> Worklist;
   const std::optional<StringRef> Family = getAllocationFamily(AI, &TLI);
@@ -3224,6 +3229,8 @@ static bool isAllocSiteRemovable(Instruction *AI,
     Instruction *PI = Worklist.pop_back_val();
     for (User *U : PI->users()) {
       Instruction *I = cast<Instruction>(U);
+      if (Users.size() >= MaxAllocSiteRemovableUsers)
+        return false;
       switch (I->getOpcode()) {
       default:
         // Give up the moment we see something we can't handle.
@@ -3350,7 +3357,11 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
   // outputs of a program (when we convert a malloc to an alloca, the fact that
   // the allocation is now on the stack is potentially visible, for example),
   // but we believe in a permissible manner.
-  SmallVector<WeakTrackingVH, 64> Users;
+  //
+  // Collect into Instruction* first to avoid expensive WeakTrackingVH
+  // register/unregister overhead; convert to WeakTrackingVH only when the
+  // site is actually removable.
+  SmallVector<Instruction *, 64> RawUsers;
 
   // If we are removing an alloca with a dbg.declare, insert dbg.value calls
   // before each store.
@@ -3362,7 +3373,9 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
     DIB.reset(new DIBuilder(*MI.getModule(), /*AllowUnresolved=*/false));
   }
 
-  if (isAllocSiteRemovable(&MI, Users, TLI)) {
+  bool Removable = isAllocSiteRemovable(&MI, RawUsers, TLI);
+  if (Removable) {
+    SmallVector<WeakTrackingVH, 64> Users(RawUsers.begin(), RawUsers.end());
     for (unsigned i = 0, e = Users.size(); i != e; ++i) {
       // Lowering all @llvm.objectsize calls first because they may
       // use a bitcast/GEP of the alloca we are removing.
