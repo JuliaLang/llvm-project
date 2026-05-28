@@ -246,9 +246,13 @@ CodeViewDebug::getInlineSite(const DILocation *InlinedAt,
               .SiteFuncId;
 
     Site->SiteFuncId = NextFuncId++;
+    // CodeView columns are 16 bits; record 0 ("unknown") if it doesn't fit.
+    unsigned IAColumn = InlinedAt->getColumn();
+    if (IAColumn > UINT16_MAX)
+      IAColumn = 0;
     OS.emitCVInlineSiteIdDirective(
         Site->SiteFuncId, ParentFuncId, maybeRecordFile(InlinedAt->getFile()),
-        InlinedAt->getLine(), InlinedAt->getColumn(), SMLoc());
+        InlinedAt->getLine(), IAColumn, SMLoc());
     Site->Inlinee = Inlinee;
     InlinedSubprograms.insert(Inlinee);
     auto InlineeIdx = getFuncIdForSubprogram(Inlinee);
@@ -523,9 +527,11 @@ void CodeViewDebug::maybeRecordLocation(const DebugLoc &DL,
       LI.isNeverStepInto())
     return;
 
-  ColumnInfo CI(DL.getCol(), /*EndColumn=*/0);
-  if (CI.getStartColumn() != DL.getCol())
-    return;
+  // CodeView column numbers are limited to 16 bits. If the column number does
+  // not fit, record it as 0 ("unknown") rather than dropping the location.
+  unsigned Column = DL.getCol();
+  if (Column > UINT16_MAX)
+    Column = 0;
 
   if (!CurFn->HaveLineInfo)
     CurFn->HaveLineInfo = true;
@@ -558,7 +564,7 @@ void CodeViewDebug::maybeRecordLocation(const DebugLoc &DL,
     addLocIfNotPresent(CurFn->ChildSites, Loc);
   }
 
-  OS.emitCVLocDirective(FuncId, FileId, DL.getLine(), DL.getCol(),
+  OS.emitCVLocDirective(FuncId, FileId, DL.getLine(), Column,
                         /*PrologueEnd=*/false, /*IsStmt=*/false,
                         DL->getFilename(), SMLoc());
 }
