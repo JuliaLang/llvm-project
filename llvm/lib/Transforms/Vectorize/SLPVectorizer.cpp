@@ -5665,7 +5665,8 @@ private:
           }
           // The commutative user with the same operands can be safely
           // considered as non-commutative, operands reordering does not change
-          // the semantics.
+          // the semantics. Same for cmps with the same operands: inverting
+          // the predicate does not change the operand columns in this case.
           assert(
               (!IsCommutativeUser ||
                (((::isCommutative(User) &&
@@ -5680,7 +5681,8 @@ private:
           bool IsCommutativeWithSameOps =
               IsCommutativeUser && User->getOperand(0) == User->getOperand(1);
           if ((!IsCommutativeUser || IsCommutativeWithSameOps) &&
-              !isa<CmpInst>(User)) {
+              (!isa<CmpInst>(User) ||
+               User->getOperand(0) == User->getOperand(1))) {
             EdgeInfo EI(TE, U.getOperandNo());
             if (CurNumOps != NumOps || getScheduleCopyableData(EI, Op))
               continue;
