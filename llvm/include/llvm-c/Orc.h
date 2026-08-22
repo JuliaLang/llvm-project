@@ -1100,6 +1100,12 @@ LLVM_C_ABI LLVMOrcThreadSafeContextRef
 LLVMOrcCreateNewThreadSafeContextFromLLVMContext(LLVMContextRef Ctx);
 
 /**
+ * Get a reference to the wrapped LLVMContext.
+ */
+LLVMContextRef
+LLVMOrcThreadSafeContextGetContext(LLVMOrcThreadSafeContextRef TSCtx);
+
+/**
  * Dispose of a ThreadSafeContext.
  */
 LLVM_C_ABI void
