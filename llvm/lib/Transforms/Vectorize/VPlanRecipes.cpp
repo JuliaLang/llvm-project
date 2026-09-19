@@ -3955,6 +3955,12 @@ InstructionCost VPReplicateRecipe::computeCost(ElementCount VF,
         // vectorization with such operations.
         return 3000000;
       }
+    } else if (!IsLoad && getParent()->getPlan()->isMergedPredicatedStore(UI) &&
+               Ctx.useEmulatedMaskMemRefHack(this, VF)) {
+      // This store replaced a group of predicated stores, but it is still
+      // scalarized: the widening decisions were taken before the group was
+      // merged. Keep applying the hack above to the stores it stands for.
+      return 3000000;
     }
     return Cost;
   }
