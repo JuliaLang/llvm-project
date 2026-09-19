@@ -4816,6 +4816,15 @@ class VPlan {
   /// VPlan is destroyed.
   SmallVector<VPBlockBase *> CreatedBlocks;
 
+  /// Number of predicated stores VPlanTransforms::sinkPredicatedStores merged
+  /// into unpredicated ones. The cost model keeps counting them as predicated,
+  /// see VPCostContext::useEmulatedMaskMemRefHack.
+  unsigned NumMergedPredicatedStores = 0;
+
+  /// The stores VPlanTransforms::sinkPredicatedStores merged a group of
+  /// predicated stores into.
+  SmallPtrSet<const Instruction *, 2> MergedPredicatedStores;
+
   /// Construct a VPlan with \p Entry to the plan and with \p ScalarHeader
   /// wrapping the original header of the scalar loop. The vector loop will have
   /// index type \p IdxTy.
@@ -4851,6 +4860,25 @@ public:
 
   /// Generate the IR code for this VPlan.
   void execute(VPTransformState *State);
+
+  /// Record that \p N predicated stores have been merged into a single
+  /// unpredicated store of \p SI.
+  void addMergedPredicatedStores(unsigned N, const Instruction *SI) {
+    NumMergedPredicatedStores += N;
+    MergedPredicatedStores.insert(SI);
+  }
+
+  /// Return the number of predicated stores that have been merged into
+  /// unpredicated ones.
+  unsigned getNumMergedPredicatedStores() const {
+    return NumMergedPredicatedStores;
+  }
+
+  /// Return true if \p SI is the underlying instruction of a store that
+  /// replaced a group of predicated stores.
+  bool isMergedPredicatedStore(const Instruction *SI) const {
+    return MergedPredicatedStores.contains(SI);
+  }
 
   /// Return the cost of this plan.
   InstructionCost cost(ElementCount VF, VPCostContext &Ctx);
