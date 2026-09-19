@@ -1231,6 +1231,8 @@ VPlan *VPlan::duplicate() {
   // Create VPlan, clone live-ins and remap operands in the cloned blocks.
   auto *NewPlan =
       new VPlan(cast<VPBasicBlock>(NewEntry), NewScalarHeader, getIndexType());
+  NewPlan->NumMergedPredicatedStores = NumMergedPredicatedStores;
+  NewPlan->MergedPredicatedStores = MergedPredicatedStores;
   DenseMap<VPValue *, VPValue *> Old2NewVPValues;
   for (VPIRValue *OldLiveIn : getLiveIns())
     Old2NewVPValues[OldLiveIn] = NewPlan->getOrAddLiveIn(OldLiveIn);
@@ -1923,7 +1925,7 @@ bool VPCostContext::useEmulatedMaskMemRefHack(const VPReplicateRecipe *R,
     // Only stores where scatter is not legal are counted, matching the legacy
     // cost model behavior.
     const VPlan &Plan = *R->getParent()->getPlan();
-    NumPredStores = 0;
+    NumPredStores = Plan.getNumMergedPredicatedStores();
     for (const VPRegionBlock *VPRB :
          VPBlockUtils::blocksOnly<const VPRegionBlock>(
              vp_depth_first_shallow(Plan.getVectorLoopRegion()->getEntry()))) {
