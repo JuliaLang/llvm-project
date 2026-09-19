@@ -5434,7 +5434,12 @@ void VPlanTransforms::sinkPredicatedStores(VPlan &Plan,
         /*Mask=*/nullptr, *LastStore, CommonMetadata);
     UnpredicatedStore->insertBefore(*InsertBB, LastStore->getIterator());
 
-    // Remove all predicated stores from the group.
+    // Remove all predicated stores from the group. Record how many were
+    // merged away, so that the cost model can keep treating them as
+    // predicated: the store left behind is still scalarized, since the
+    // widening decisions were taken before this transform ran.
+    Plan.addMergedPredicatedStores(Group.size(),
+                                   UnpredicatedStore->getUnderlyingInstr());
     for (VPReplicateRecipe *Store : Group)
       Store->eraseFromParent();
   }
