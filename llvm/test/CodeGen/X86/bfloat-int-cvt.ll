@@ -455,7 +455,7 @@ define <2 x i32> @fptosi_v2bf16_to_v2i32(<2 x bfloat> %a) {
 ; BF16-NEXT:    vmovd %xmm0, %eax
 ; BF16-NEXT:    shll $16, %eax
 ; BF16-NEXT:    vmovd %eax, %xmm0
-; BF16-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[2,3]
+; BF16-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm1[0],zero,zero
 ; BF16-NEXT:    vcvttps2dq %xmm0, %xmm0
 ; BF16-NEXT:    retq
 ;
@@ -467,7 +467,7 @@ define <2 x i32> @fptosi_v2bf16_to_v2i32(<2 x bfloat> %a) {
 ; AVX10_2-NEXT:    vpextrw $1, %xmm0, %eax
 ; AVX10_2-NEXT:    shll $16, %eax
 ; AVX10_2-NEXT:    vmovd %eax, %xmm0
-; AVX10_2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0],xmm0[0],xmm1[2,3]
+; AVX10_2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0],xmm0[0],zero,zero
 ; AVX10_2-NEXT:    vcvttps2dq %xmm0, %xmm0
 ; AVX10_2-NEXT:    retq
   %cvt = fptosi <2 x bfloat> %a to <2 x i32>
@@ -689,7 +689,7 @@ define <2 x i32> @fptoui_v2bf16_to_v2i32(<2 x bfloat> %a) {
 ; BF16-NEXT:    vmovd %xmm0, %eax
 ; BF16-NEXT:    shll $16, %eax
 ; BF16-NEXT:    vmovd %eax, %xmm0
-; BF16-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[2,3]
+; BF16-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm1[0],zero,zero
 ; BF16-NEXT:    vcvttps2udq %xmm0, %xmm0
 ; BF16-NEXT:    retq
 ;
@@ -701,7 +701,7 @@ define <2 x i32> @fptoui_v2bf16_to_v2i32(<2 x bfloat> %a) {
 ; AVX10_2-NEXT:    vpextrw $1, %xmm0, %eax
 ; AVX10_2-NEXT:    shll $16, %eax
 ; AVX10_2-NEXT:    vmovd %eax, %xmm0
-; AVX10_2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0],xmm0[0],xmm1[2,3]
+; AVX10_2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0],xmm0[0],zero,zero
 ; AVX10_2-NEXT:    vcvttps2udq %xmm0, %xmm0
 ; AVX10_2-NEXT:    retq
   %cvt = fptoui <2 x bfloat> %a to <2 x i32>
