@@ -376,7 +376,7 @@ define <4 x float> @test14(<4 x float> %A, <4 x float> %B) {
 ; AVX-NEXT:    vshufpd {{.*#+}} xmm0 = xmm0[1,0]
 ; AVX-NEXT:    vshufpd {{.*#+}} xmm1 = xmm1[1,0]
 ; AVX-NEXT:    vsubss %xmm1, %xmm0, %xmm0
-; AVX-NEXT:    vinsertps {{.*#+}} xmm0 = xmm2[0,1],xmm0[0],xmm2[3]
+; AVX-NEXT:    vinsertps {{.*#+}} xmm0 = xmm2[0],zero,xmm0[0],zero
 ; AVX-NEXT:    retq
   %1 = extractelement <4 x float> %A, i32 0
   %2 = extractelement <4 x float> %B, i32 0
@@ -467,7 +467,7 @@ define <4 x float> @test16(<4 x float> %A, <4 x float> %B) {
 ; AVX-NEXT:    vsubss %xmm5, %xmm4, %xmm4
 ; AVX-NEXT:    vmovshdup {{.*#+}} xmm5 = xmm0[1,1,3,3]
 ; AVX-NEXT:    vaddss %xmm2, %xmm5, %xmm2
-; AVX-NEXT:    vinsertps {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[2,3]
+; AVX-NEXT:    vinsertps {{.*#+}} xmm2 = xmm3[0],xmm2[0],zero,zero
 ; AVX-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],xmm4[0],xmm2[3]
 ; AVX-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
 ; AVX-NEXT:    vshufps {{.*#+}} xmm1 = xmm1[3,3,3,3]
