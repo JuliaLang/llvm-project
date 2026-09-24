@@ -90,7 +90,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
@@ -105,7 +105,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],xmm5[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
@@ -121,7 +121,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
@@ -136,7 +136,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],xmm5[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
@@ -154,7 +154,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
@@ -169,7 +169,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
@@ -185,7 +185,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
@@ -200,7 +200,7 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
@@ -413,7 +413,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
@@ -428,7 +428,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],xmm5[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm1, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
@@ -444,7 +444,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
@@ -459,7 +459,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],xmm5[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm5[0],xmm4[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
@@ -477,7 +477,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
@@ -492,7 +492,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm0, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
@@ -508,7 +508,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
@@ -523,7 +523,7 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
