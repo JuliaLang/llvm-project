@@ -3866,6 +3866,12 @@ private:
   /// shuffles, and extracts) that the tree will produce.
   unsigned getNumVectorInsts() const;
 
+  /// \returns true if the vector FMul \p TE only feeds the first operand of an
+  /// alternating FSub/FAdd node that the target lowers together with it into
+  /// one fused instruction (X86 FMADDSUB), the vector counterpart of the
+  /// scalar FMA fusion getNumScalarInsts() accounts for.
+  bool isFMulFusedIntoAltFAddSub(const TreeEntry &TE) const;
+
   /// Return information about the vector formed for the specified index
   /// of a vector of (the same) instruction.
   TargetTransformInfo::OperandValueInfo
@@ -13922,6 +13928,57 @@ unsigned BoUpSLP::getNumScalarInsts() const {
   return Count;
 }
 
+bool BoUpSLP::isFMulFusedIntoAltFAddSub(const TreeEntry &TE) const {
+  if (TE.State != TreeEntry::Vectorize || !TE.hasState() ||
+      TE.getOpcode() != Instruction::FMul || TE.isAltShuffle() ||
+      TE.hasCopyableElements() || !TE.ReuseShuffleIndices.empty())
+    return false;
+  // A shuffle of the products keeps them from fusing, unless one factor is the
+  // same in every lane: the shuffle then moves to the other factor
+  // (VectorCombine), and it is counted either way.
+  if (!TE.ReorderIndices.empty() &&
+      !any_of(seq<unsigned>(2), [&](unsigned OpIdx) {
+        Value *Op = cast<Instruction>(TE.Scalars.front())->getOperand(OpIdx);
+        return all_of(TE.Scalars, [&](Value *V) {
+          return cast<Instruction>(V)->getOperand(OpIdx) == Op;
+        });
+      }))
+    return false;
+  // The FMul must be the first operand, i.e. the minuend of the FSub lanes.
+  const TreeEntry *UserTE = TE.UserTreeIndex.UserTE;
+  if (!UserTE || TE.UserTreeIndex.EdgeIdx != 0 ||
+      UserTE->State != TreeEntry::Vectorize || !UserTE->hasState() ||
+      !UserTE->isAltShuffle() || UserTE->hasCopyableElements() ||
+      !UserTE->ReorderIndices.empty() || !UserTE->ReuseShuffleIndices.empty() ||
+      DeletedNodes.contains(UserTE) || TransformedToGatherNodes.contains(UserTE))
+    return false;
+  unsigned Opcode0 = UserTE->getOpcode();
+  unsigned Opcode1 = UserTE->getAltOpcode();
+  if (!((Opcode0 == Instruction::FSub && Opcode1 == Instruction::FAdd) ||
+        (Opcode0 == Instruction::FAdd && Opcode1 == Instruction::FSub)))
+    return false;
+  // Each product must only feed its lane of the add/sub.
+  if (!all_of(TE.Scalars, [](Value *V) {
+        auto *I = dyn_cast<Instruction>(V);
+        return I && I->hasOneUse();
+      }))
+    return false;
+  // The alternating add/sub must be a single instruction (X86 ADDSUB), which
+  // targets with FMA fuse with the multiply (X86 FMADDSUB).
+  Type *ScalarTy = UserTE->Scalars.front()->getType();
+  auto *VecTy =
+      cast<VectorType>(getWidenedType(ScalarTy, UserTE->getVectorFactor()));
+  SmallBitVector OpcodeMask(
+      getAltInstrMask(UserTE->Scalars, ScalarTy, Opcode0, Opcode1));
+  if (!TTI->isLegalAltInstr(VecTy, Opcode0, Opcode1, OpcodeMask))
+    return false;
+  return canConvertToFMA(UserTE->Scalars,
+                         InstructionsState(UserTE->getMainOp(),
+                                           UserTE->getAltOp()),
+                         *DT, *DL, *TTI, *TLI)
+      .isValid();
+}
+
 unsigned BoUpSLP::getNumVectorInsts() const {
   unsigned Count = 0;
   SmallPtrSet<Value *, 4> GatherExtractSourceVecs;
@@ -13980,7 +14037,7 @@ unsigned BoUpSLP::getNumVectorInsts() const {
     }
     if (TE.State == TreeEntry::SplitVectorize)
       Count += 2;
-    else
+    else if (!isFMulFusedIntoAltFAddSub(TE))
       ++Count;
     if (!TE.ReorderIndices.empty() || !TE.ReuseShuffleIndices.empty())
       ++Count;
