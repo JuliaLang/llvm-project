@@ -1065,12 +1065,13 @@ isNoWrap(PredicatedScalarEvolution &PSE, const SCEVAddRecExpr *AR, Value *Ptr,
       return true;
   }
 
+  ScalarEvolution &SE = *PSE.getSE();
+  SCEVWrapPredicate::IncrementWrapFlags Flags = SCEVWrapPredicate::clearFlags(
+      SCEVWrapPredicate::IncrementNUSW,
+      SCEVWrapPredicate::getImpliedFlags(AR, SE));
+  const SCEVPredicate *WrapPred = SE.getWrapPredicate(AR, Flags);
   if (Ptr && Predicates) {
-    ScalarEvolution &SE = *PSE.getSE();
-    SCEVWrapPredicate::IncrementWrapFlags Flags = SCEVWrapPredicate::clearFlags(
-        SCEVWrapPredicate::IncrementNUSW,
-        SCEVWrapPredicate::getImpliedFlags(AR, SE));
-    Predicates->push_back(SE.getWrapPredicate(AR, Flags));
+    Predicates->push_back(WrapPred);
     LLVM_DEBUG(dbgs() << "LAA: Pointer may wrap:\n"
                       << "LAA:   Pointer: " << *Ptr << "\n"
                       << "LAA:   SCEV: " << *AR << "\n"
@@ -1078,7 +1079,10 @@ isNoWrap(PredicatedScalarEvolution &PSE, const SCEVAddRecExpr *AR, Value *Ptr,
     return true;
   }
 
-  return false;
+  // Without adding a new predicate, AR may still be known not to wrap if the
+  // predicates of PSE already imply it, e.g. because a wrap predicate for AR
+  // was added while analyzing the dependences of the loop.
+  return PSE.getPredicate().implies(WrapPred, SE);
 }
 
 static void visitPointers(Value *StartPtr, const Loop &InnermostLoop,
