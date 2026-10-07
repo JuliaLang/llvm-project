@@ -44096,18 +44096,72 @@ static bool isAddSubOrSubAddMask(ArrayRef<int> Mask, bool &Op0Even) {
 /// SimplifyDemandedVectorElts leaves of a chain of add/sub shuffles: each
 /// FSUB/FADD only demands its own lanes of the inner shuffle, so it is
 /// replaced by the inner FSUB or FADD respectively.
-static bool isSplitAddSubChain(SDValue Sub, SDValue Add, unsigned Depth = 0) {
+/// \p Base is set to the second operand shared by the innermost FSUB and FADD.
+static bool isSplitAddSubChain(SDValue Sub, SDValue Add, SDValue &Base,
+                               unsigned Depth = 0) {
   using namespace SDPatternMatch;
   SDValue X, Y, Z;
   if (!sd_match(Sub, m_OneUse(m_FSub(m_Value(X), m_Value(Y)))) ||
       !sd_match(Add, m_OneUse(m_FAdd(m_Specific(X), m_Value(Z)))))
     return false;
-  if (Y == Z)
+  if (Y == Z) {
+    Base = Y;
     return true;
+  }
   if (Depth > SelectionDAG::MaxRecursionDepth)
     return false;
-  return isSplitAddSubChain(Y, Z, Depth + 1) ||
-         isSplitAddSubChain(Z, Y, Depth + 1);
+  return isSplitAddSubChain(Y, Z, Base, Depth + 1) ||
+         isSplitAddSubChain(Z, Y, Base, Depth + 1);
+}
+
+/// Returns true if \p V is the value of a PHI node, such as the accumulator of
+/// a loop. FunctionLoweringInfo creates all machine PHIs before any block is
+/// selected, so a PHI from any block is visible here as the definition of the
+/// virtual register \p V is copied from.
+static bool isPHIValue(SDValue V, SelectionDAG &DAG) {
+  if (V.getOpcode() != ISD::CopyFromReg || V.getResNo() != 0)
+    return false;
+  Register Reg = cast<RegisterSDNode>(V.getOperand(1))->getReg();
+  if (!Reg.isVirtual())
+    return false;
+  const MachineInstr *Def =
+      DAG.getMachineFunction().getRegInfo().getVRegDef(Reg);
+  return Def && Def->isPHI();
+}
+
+/// Returns true if the scheduling model gives FMADDSUB a longer latency than
+/// the ADDSUB (or, at 512 bits, FADD) that it replaces when it absorbs an
+/// FMUL, i.e. if fusing lengthens a dependency chain through the addend.
+static bool isFMAddSubSlowerThanAddSub(const X86Subtarget &Subtarget, MVT VT) {
+  const MCSchedModel &SM = Subtarget.getSchedModel();
+  MVT SVT = VT.getScalarType();
+  if (!Subtarget.hasFMA() || !SM.hasInstrSchedModel() ||
+      (SVT != MVT::f32 && SVT != MVT::f64))
+    return false;
+  bool IsF32 = SVT == MVT::f32;
+  unsigned FMAOpc, AddOpc;
+  if (VT.is128BitVector()) {
+    FMAOpc = IsF32 ? X86::VFMADDSUB231PSr : X86::VFMADDSUB231PDr;
+    AddOpc = IsF32 ? X86::VADDSUBPSrr : X86::VADDSUBPDrr;
+  } else if (VT.is256BitVector()) {
+    FMAOpc = IsF32 ? X86::VFMADDSUB231PSYr : X86::VFMADDSUB231PDYr;
+    AddOpc = IsF32 ? X86::VADDSUBPSYrr : X86::VADDSUBPDYrr;
+  } else if (VT.is512BitVector()) {
+    FMAOpc = IsF32 ? X86::VFMADDSUB231PSZr : X86::VFMADDSUB231PDZr;
+    AddOpc = IsF32 ? X86::VADDPSZrr : X86::VADDPDZrr;
+  } else {
+    return false;
+  }
+  auto GetLatency = [&](unsigned Opc) {
+    const MCSchedClassDesc *SC = SM.getSchedClassDesc(
+        Subtarget.getInstrInfo()->get(Opc).getSchedClass());
+    if (!SC->isValid() || SC->isVariant())
+      return -1;
+    return MCSchedModel::computeInstrLatency(Subtarget, *SC);
+  };
+  int FMALatency = GetLatency(FMAOpc);
+  int AddLatency = GetLatency(AddOpc);
+  return FMALatency > 0 && AddLatency > 0 && FMALatency > AddLatency;
 }
 
 /// Returns true iff the shuffle node \p N can be replaced with ADDSUB(SUBADD)
@@ -44115,7 +44169,8 @@ static bool isSplitAddSubChain(SDValue Sub, SDValue Add, unsigned Depth = 0) {
 /// are written to the parameters \p Opnd0 and \p Opnd1. \p Opnd1 and
 /// \p Opnd1Alt are the second operands of the first and the second shuffle
 /// input; if they differ, they have to be blended with the shuffle mask
-/// \p Mask to form the second operand.
+/// \p Mask to form the second operand, and \p ChainBase is set to the second
+/// operand shared by the innermost FSUB and FADD of the chain they form.
 ///
 /// We combine shuffle to ADDSUB(SUBADD) directly on the abstract vector shuffle
 /// nodes so it is easier to generically match. We also insert dummy vector
@@ -44125,7 +44180,8 @@ static bool isSplitAddSubChain(SDValue Sub, SDValue Add, unsigned Depth = 0) {
 static bool isAddSubOrSubAdd(SDNode *N, const X86Subtarget &Subtarget,
                              SelectionDAG &DAG, SDValue &Opnd0, SDValue &Opnd1,
                              SDValue &Opnd1Alt, SmallVectorImpl<int> &Mask,
-                             bool &IsSubAdd, bool &HasAllowContract) {
+                             SDValue &ChainBase, bool &IsSubAdd,
+                             bool &HasAllowContract) {
   using namespace SDPatternMatch;
 
   EVT VT = N->getValueType(0);
@@ -44179,8 +44235,9 @@ static bool isAddSubOrSubAdd(SDNode *N, const X86Subtarget &Subtarget,
   // The second operands must be the same too, unless they are what is left of
   // an inner add/sub (or sub/add) shuffle, as in a chain of complex
   // multiply-adds. Blending them again recreates the inner shuffle.
-  if (AddRHS != RHS && !isSplitAddSubChain(RHS, AddRHS) &&
-      !isSplitAddSubChain(AddRHS, RHS))
+  ChainBase = SDValue();
+  if (AddRHS != RHS && !isSplitAddSubChain(RHS, AddRHS, ChainBase) &&
+      !isSplitAddSubChain(AddRHS, RHS, ChainBase))
     return false;
 
   // It's a subadd if the vector in the even parity is an FADD.
@@ -44244,12 +44301,12 @@ static SDValue combineShuffleToAddSubOrFMAddSub(SDNode *N, const SDLoc &DL,
   if (SDValue V = combineShuffleToFMAddSub(N, DL, Subtarget, DAG))
     return V;
 
-  SDValue Opnd0, Opnd1, Opnd1Alt;
+  SDValue Opnd0, Opnd1, Opnd1Alt, ChainBase;
   SmallVector<int, 16> Mask;
   bool IsSubAdd;
   bool HasAllowContract;
   if (!isAddSubOrSubAdd(N, Subtarget, DAG, Opnd0, Opnd1, Opnd1Alt, Mask,
-                        IsSubAdd, HasAllowContract))
+                        ChainBase, IsSubAdd, HasAllowContract))
     return SDValue();
 
   MVT VT = N->getSimpleValueType(0);
@@ -44266,6 +44323,14 @@ static SDValue combineShuffleToAddSubOrFMAddSub(SDNode *N, const SDLoc &DL,
   SDValue Opnd2;
   if (isFMAddSubOrFMSubAdd(Subtarget, DAG, Opnd0, Opnd1, Opnd2, 2,
                            HasAllowContract)) {
+    // Fusing a chain puts the FMA latency of every link on its critical path,
+    // where the separate FSUBs and FADDs only have the add latency on it and
+    // the multiplies off it. That matters if the chain continues a
+    // loop-carried value, such as the accumulator of a complex dot product,
+    // on targets where FMADDSUB is slower than ADDSUB: leave such chains alone.
+    if (ChainBase && isPHIValue(ChainBase, DAG) &&
+        isFMAddSubSlowerThanAddSub(Subtarget, VT))
+      return SDValue();
     unsigned Opc = IsSubAdd ? X86ISD::FMSUBADD : X86ISD::FMADDSUB;
     return DAG.getNode(Opc, DL, VT, Opnd0, Opnd1, BlendOpnd1(Opnd2));
   }
