@@ -44114,6 +44114,26 @@ static bool isSplitAddSubChain(SDValue Sub, SDValue Add, SDValue &Base,
          isSplitAddSubChain(Z, Y, Base, Depth + 1);
 }
 
+/// Rebuilds the FSUB \p Sub and the FADD \p Add of a split add/sub chain (see
+/// isSplitAddSubChain) as one ADDSUB per link, keeping the multiplies separate.
+/// Returns an empty SDValue if a link alternates the other way round, which
+/// has no ADDSUB form.
+static SDValue buildAddSubChain(SDValue Sub, SDValue Add, const SDLoc &DL,
+                                MVT VT, SelectionDAG &DAG, unsigned Depth = 0) {
+  using namespace SDPatternMatch;
+  if (Sub == Add)
+    return Sub;
+  SDValue X, Y, Z;
+  if (Depth > SelectionDAG::MaxRecursionDepth ||
+      !sd_match(Sub, m_OneUse(m_FSub(m_Value(X), m_Value(Y)))) ||
+      !sd_match(Add, m_OneUse(m_FAdd(m_Specific(X), m_Value(Z)))))
+    return SDValue();
+  SDValue Inner = buildAddSubChain(Y, Z, DL, VT, DAG, Depth + 1);
+  if (!Inner)
+    return SDValue();
+  return DAG.getNode(X86ISD::ADDSUB, DL, VT, X, Inner);
+}
+
 /// Returns true if \p V is the value of a PHI node, such as the accumulator of
 /// a loop. FunctionLoweringInfo creates all machine PHIs before any block is
 /// selected, so a PHI from any block is visible here as the definition of the
@@ -44321,18 +44341,29 @@ static SDValue combineShuffleToAddSubOrFMAddSub(SDNode *N, const SDLoc &DL,
 
   // Try to generate X86ISD::FMADDSUB node here.
   SDValue Opnd2;
-  if (isFMAddSubOrFMSubAdd(Subtarget, DAG, Opnd0, Opnd1, Opnd2, 2,
+  SDValue FMAOpnd0 = Opnd0, FMAOpnd1 = Opnd1;
+  if (isFMAddSubOrFMSubAdd(Subtarget, DAG, FMAOpnd0, FMAOpnd1, Opnd2, 2,
                            HasAllowContract)) {
     // Fusing a chain puts the FMA latency of every link on its critical path,
-    // where the separate FSUBs and FADDs only have the add latency on it and
+    // where ADDSUBs (or FSUBs and FADDs) only have the add latency on it and
     // the multiplies off it. That matters if the chain continues a
     // loop-carried value, such as the accumulator of a complex dot product,
-    // on targets where FMADDSUB is slower than ADDSUB: leave such chains alone.
+    // on targets where FMADDSUB is slower than ADDSUB: build such a chain from
+    // ADDSUBs instead, or leave it alone if it has no ADDSUB form.
     if (ChainBase && isPHIValue(ChainBase, DAG) &&
-        isFMAddSubSlowerThanAddSub(Subtarget, VT))
-      return SDValue();
+        isFMAddSubSlowerThanAddSub(Subtarget, VT)) {
+      if (IsSubAdd || VT.is512BitVector())
+        return SDValue();
+      bool Op0Even;
+      isAddSubOrSubAddMask(Mask, Op0Even);
+      SDValue Inner = buildAddSubChain(Op0Even ? Opnd1 : Opnd1Alt,
+                                       Op0Even ? Opnd1Alt : Opnd1, DL, VT, DAG);
+      if (!Inner)
+        return SDValue();
+      return DAG.getNode(X86ISD::ADDSUB, DL, VT, Opnd0, Inner);
+    }
     unsigned Opc = IsSubAdd ? X86ISD::FMSUBADD : X86ISD::FMADDSUB;
-    return DAG.getNode(Opc, DL, VT, Opnd0, Opnd1, BlendOpnd1(Opnd2));
+    return DAG.getNode(Opc, DL, VT, FMAOpnd0, FMAOpnd1, BlendOpnd1(Opnd2));
   }
 
   if (IsSubAdd)

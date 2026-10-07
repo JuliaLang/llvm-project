@@ -29,13 +29,10 @@ define <2 x double> @cdot_pd128(ptr %a, ptr %b, ptr %idx, i64 %n) {
 ; HSW-NEXT:    vmovddup {{.*#+}} xmm2 = mem[0,0]
 ; HSW-NEXT:    vshufpd {{.*#+}} xmm3 = xmm1[1,0]
 ; HSW-NEXT:    vmulpd %xmm3, %xmm2, %xmm2
-; HSW-NEXT:    vsubpd %xmm0, %xmm2, %xmm3
-; HSW-NEXT:    vaddpd %xmm0, %xmm2, %xmm0
+; HSW-NEXT:    vaddsubpd %xmm0, %xmm2, %xmm0
 ; HSW-NEXT:    vmovddup {{.*#+}} xmm2 = mem[0,0]
 ; HSW-NEXT:    vmulpd %xmm1, %xmm2, %xmm1
-; HSW-NEXT:    vsubpd %xmm3, %xmm1, %xmm2
-; HSW-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
-; HSW-NEXT:    vblendpd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; HSW-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
 ; HSW-NEXT:    incq %rax
 ; HSW-NEXT:    addq $16, %rdi
 ; HSW-NEXT:    cmpq %rax, %rcx
@@ -79,12 +76,9 @@ define <2 x double> @cdot_pd128(ptr %a, ptr %b, ptr %idx, i64 %n) {
 ; SPR-NEXT:    vmovupd (%rsi,%r8), %xmm1
 ; SPR-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,0]
 ; SPR-NEXT:    vmulpd (%rdi){1to2}, %xmm2, %xmm2
-; SPR-NEXT:    vsubpd %xmm0, %xmm2, %xmm3
+; SPR-NEXT:    vaddsubpd %xmm0, %xmm2, %xmm0
 ; SPR-NEXT:    vmulpd -8(%rdi){1to2}, %xmm1, %xmm1
-; SPR-NEXT:    vaddpd %xmm0, %xmm2, %xmm0
-; SPR-NEXT:    vsubpd %xmm3, %xmm1, %xmm2
-; SPR-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
-; SPR-NEXT:    vmovsd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; SPR-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
 ; SPR-NEXT:    incq %rax
 ; SPR-NEXT:    addq $16, %rdi
 ; SPR-NEXT:    cmpq %rax, %rcx
@@ -108,11 +102,8 @@ define <2 x double> @cdot_pd128(ptr %a, ptr %b, ptr %idx, i64 %n) {
 ; ZNVER-NEXT:    vmulpd (%rdi){1to2}, %xmm2, %xmm2
 ; ZNVER-NEXT:    vmulpd -8(%rdi){1to2}, %xmm1, %xmm1
 ; ZNVER-NEXT:    addq $16, %rdi
-; ZNVER-NEXT:    vsubpd %xmm0, %xmm2, %xmm3
-; ZNVER-NEXT:    vaddpd %xmm0, %xmm2, %xmm0
-; ZNVER-NEXT:    vsubpd %xmm3, %xmm1, %xmm2
-; ZNVER-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
-; ZNVER-NEXT:    vmovsd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; ZNVER-NEXT:    vaddsubpd %xmm0, %xmm2, %xmm0
+; ZNVER-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
 ; ZNVER-NEXT:    cmpq %rax, %rcx
 ; ZNVER-NEXT:    jne .LBB0_1
 ; ZNVER-NEXT:  # %bb.2: # %exit
@@ -166,13 +157,10 @@ define <4 x double> @cdot_pd256(ptr %a, ptr %b, i64 %n) {
 ; HSW-NEXT:    vshufpd {{.*#+}} ymm3 = ymm1[1,1,3,3]
 ; HSW-NEXT:    vshufpd {{.*#+}} ymm4 = ymm2[1,0,3,2]
 ; HSW-NEXT:    vmulpd %ymm4, %ymm3, %ymm3
-; HSW-NEXT:    vsubpd %ymm0, %ymm3, %ymm4
-; HSW-NEXT:    vaddpd %ymm0, %ymm3, %ymm0
+; HSW-NEXT:    vaddsubpd %ymm0, %ymm3, %ymm0
 ; HSW-NEXT:    vmovddup {{.*#+}} ymm1 = ymm1[0,0,2,2]
 ; HSW-NEXT:    vmulpd %ymm2, %ymm1, %ymm1
-; HSW-NEXT:    vsubpd %ymm4, %ymm1, %ymm2
-; HSW-NEXT:    vaddpd %ymm0, %ymm1, %ymm0
-; HSW-NEXT:    vblendpd {{.*#+}} ymm0 = ymm2[0],ymm0[1],ymm2[2],ymm0[3]
+; HSW-NEXT:    vaddsubpd %ymm0, %ymm1, %ymm0
 ; HSW-NEXT:    addq $32, %rax
 ; HSW-NEXT:    decq %rdx
 ; HSW-NEXT:    jne .LBB1_1
@@ -211,13 +199,10 @@ define <4 x double> @cdot_pd256(ptr %a, ptr %b, i64 %n) {
 ; SPR-NEXT:    vshufpd {{.*#+}} ymm3 = ymm1[1,1,3,3]
 ; SPR-NEXT:    vshufpd {{.*#+}} ymm4 = ymm2[1,0,3,2]
 ; SPR-NEXT:    vmulpd %ymm4, %ymm3, %ymm3
-; SPR-NEXT:    vsubpd %ymm0, %ymm3, %ymm4
-; SPR-NEXT:    vaddpd %ymm0, %ymm3, %ymm0
+; SPR-NEXT:    vaddsubpd %ymm0, %ymm3, %ymm0
 ; SPR-NEXT:    vmovddup {{.*#+}} ymm1 = ymm1[0,0,2,2]
 ; SPR-NEXT:    vmulpd %ymm2, %ymm1, %ymm1
-; SPR-NEXT:    vsubpd %ymm4, %ymm1, %ymm2
-; SPR-NEXT:    vaddpd %ymm0, %ymm1, %ymm0
-; SPR-NEXT:    vblendpd {{.*#+}} ymm0 = ymm2[0],ymm0[1],ymm2[2],ymm0[3]
+; SPR-NEXT:    vaddsubpd %ymm0, %ymm1, %ymm0
 ; SPR-NEXT:    addq $32, %rax
 ; SPR-NEXT:    decq %rdx
 ; SPR-NEXT:    jne .LBB1_1
@@ -240,11 +225,8 @@ define <4 x double> @cdot_pd256(ptr %a, ptr %b, i64 %n) {
 ; ZNVER-NEXT:    vmovddup {{.*#+}} ymm1 = ymm1[0,0,2,2]
 ; ZNVER-NEXT:    vmulpd %ymm4, %ymm3, %ymm3
 ; ZNVER-NEXT:    vmulpd %ymm2, %ymm1, %ymm1
-; ZNVER-NEXT:    vsubpd %ymm0, %ymm3, %ymm4
-; ZNVER-NEXT:    vaddpd %ymm0, %ymm3, %ymm0
-; ZNVER-NEXT:    vsubpd %ymm4, %ymm1, %ymm2
-; ZNVER-NEXT:    vaddpd %ymm0, %ymm1, %ymm0
-; ZNVER-NEXT:    vblendpd {{.*#+}} ymm0 = ymm2[0],ymm0[1],ymm2[2],ymm0[3]
+; ZNVER-NEXT:    vaddsubpd %ymm0, %ymm3, %ymm0
+; ZNVER-NEXT:    vaddsubpd %ymm0, %ymm1, %ymm0
 ; ZNVER-NEXT:    jne .LBB1_1
 ; ZNVER-NEXT:  # %bb.2: # %exit
 ; ZNVER-NEXT:    retq
@@ -538,4 +520,462 @@ loop:
 
 exit:
   ret void
+}
+
+; The same as cdot_pd128, with the FADD as the first shuffle operand.
+define <2 x double> @cdot_commuted_pd128(ptr %a, ptr %b, i64 %n) {
+; HSW-LABEL: cdot_commuted_pd128:
+; HSW:       # %bb.0: # %entry
+; HSW-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; HSW-NEXT:    movl $16, %eax
+; HSW-NEXT:    .p2align 4
+; HSW-NEXT:  .LBB5_1: # %loop
+; HSW-NEXT:    # =>This Inner Loop Header: Depth=1
+; HSW-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; HSW-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; HSW-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; HSW-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm2
+; HSW-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
+; HSW-NEXT:    vaddsubpd %xmm0, %xmm2, %xmm0
+; HSW-NEXT:    addq $32, %rax
+; HSW-NEXT:    decq %rdx
+; HSW-NEXT:    jne .LBB5_1
+; HSW-NEXT:  # %bb.2: # %exit
+; HSW-NEXT:    retq
+;
+; SKL-LABEL: cdot_commuted_pd128:
+; SKL:       # %bb.0: # %entry
+; SKL-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; SKL-NEXT:    movl $16, %eax
+; SKL-NEXT:    .p2align 4
+; SKL-NEXT:  .LBB5_1: # %loop
+; SKL-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKL-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; SKL-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; SKL-NEXT:    vfmaddsub231pd {{.*#+}} xmm0 = (xmm1 * mem) +/- xmm0
+; SKL-NEXT:    vfmaddsub231pd {{.*#+}} xmm0 = (xmm2 * mem) +/- xmm0
+; SKL-NEXT:    addq $32, %rax
+; SKL-NEXT:    decq %rdx
+; SKL-NEXT:    jne .LBB5_1
+; SKL-NEXT:  # %bb.2: # %exit
+; SKL-NEXT:    retq
+;
+; SPR-LABEL: cdot_commuted_pd128:
+; SPR:       # %bb.0: # %entry
+; SPR-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; SPR-NEXT:    movl $16, %eax
+; SPR-NEXT:    .p2align 4
+; SPR-NEXT:  .LBB5_1: # %loop
+; SPR-NEXT:    # =>This Inner Loop Header: Depth=1
+; SPR-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; SPR-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; SPR-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; SPR-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm1
+; SPR-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    addq $32, %rax
+; SPR-NEXT:    decq %rdx
+; SPR-NEXT:    jne .LBB5_1
+; SPR-NEXT:  # %bb.2: # %exit
+; SPR-NEXT:    retq
+;
+; ZNVER-LABEL: cdot_commuted_pd128:
+; ZNVER:       # %bb.0: # %entry
+; ZNVER-NEXT:    movl $16, %eax
+; ZNVER-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; ZNVER-NEXT:    .p2align 4
+; ZNVER-NEXT:  .LBB5_1: # %loop
+; ZNVER-NEXT:    # =>This Inner Loop Header: Depth=1
+; ZNVER-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; ZNVER-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; ZNVER-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; ZNVER-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
+; ZNVER-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm1
+; ZNVER-NEXT:    addq $32, %rax
+; ZNVER-NEXT:    decq %rdx
+; ZNVER-NEXT:    vaddsubpd %xmm0, %xmm1, %xmm0
+; ZNVER-NEXT:    jne .LBB5_1
+; ZNVER-NEXT:  # %bb.2: # %exit
+; ZNVER-NEXT:    retq
+entry:
+  br label %loop
+
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i.next, %loop ]
+  %acc = phi <2 x double> [ zeroinitializer, %entry ], [ %acc.next, %loop ]
+  %pa = getelementptr inbounds [2 x <2 x double>], ptr %a, i64 %i
+  %a0 = load <2 x double>, ptr %pa, align 8
+  %pa1 = getelementptr inbounds i8, ptr %pa, i64 16
+  %a1v = load <2 x double>, ptr %pa1, align 8
+  %pb = getelementptr inbounds [2 x <2 x double>], ptr %b, i64 %i
+  %b0 = load <2 x double>, ptr %pb, align 8
+  %pb1 = getelementptr inbounds i8, ptr %pb, i64 16
+  %b1v = load <2 x double>, ptr %pb1, align 8
+  %m1 = fmul contract <2 x double> %a0, %b0
+  %s1 = fsub contract <2 x double> %m1, %acc
+  %d1 = fadd contract <2 x double> %acc, %m1
+  %l1 = shufflevector <2 x double> %d1, <2 x double> %s1, <2 x i32> <i32 2, i32 1>
+  %m2 = fmul contract <2 x double> %a1v, %b1v
+  %s2 = fsub contract <2 x double> %m2, %l1
+  %d2 = fadd contract <2 x double> %m2, %l1
+  %acc.next = shufflevector <2 x double> %d2, <2 x double> %s2, <2 x i32> <i32 2, i32 1>
+  %i.next = add nuw i64 %i, 1
+  %done = icmp eq i64 %i.next, %n
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret <2 x double> %acc.next
+}
+
+; Three links per iteration.
+define <4 x float> @cdot3_ps128(ptr %a, ptr %b, i64 %n) {
+; HSW-LABEL: cdot3_ps128:
+; HSW:       # %bb.0: # %entry
+; HSW-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; HSW-NEXT:    movl $32, %eax
+; HSW-NEXT:    .p2align 4
+; HSW-NEXT:  .LBB6_1: # %loop
+; HSW-NEXT:    # =>This Inner Loop Header: Depth=1
+; HSW-NEXT:    vmovups -32(%rdi,%rax), %xmm1
+; HSW-NEXT:    vmovups -16(%rdi,%rax), %xmm2
+; HSW-NEXT:    vmovups (%rdi,%rax), %xmm3
+; HSW-NEXT:    vmulps -32(%rsi,%rax), %xmm1, %xmm1
+; HSW-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; HSW-NEXT:    vmulps -16(%rsi,%rax), %xmm2, %xmm1
+; HSW-NEXT:    vmulps (%rsi,%rax), %xmm3, %xmm2
+; HSW-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; HSW-NEXT:    vaddsubps %xmm0, %xmm2, %xmm0
+; HSW-NEXT:    addq $48, %rax
+; HSW-NEXT:    decq %rdx
+; HSW-NEXT:    jne .LBB6_1
+; HSW-NEXT:  # %bb.2: # %exit
+; HSW-NEXT:    retq
+;
+; SKL-LABEL: cdot3_ps128:
+; SKL:       # %bb.0: # %entry
+; SKL-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; SKL-NEXT:    movl $32, %eax
+; SKL-NEXT:    .p2align 4
+; SKL-NEXT:  .LBB6_1: # %loop
+; SKL-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKL-NEXT:    vmovups -32(%rdi,%rax), %xmm1
+; SKL-NEXT:    vmovups -16(%rdi,%rax), %xmm2
+; SKL-NEXT:    vmovups (%rdi,%rax), %xmm3
+; SKL-NEXT:    vfmaddsub231ps {{.*#+}} xmm0 = (xmm1 * mem) +/- xmm0
+; SKL-NEXT:    vfmaddsub231ps {{.*#+}} xmm0 = (xmm2 * mem) +/- xmm0
+; SKL-NEXT:    vfmaddsub231ps {{.*#+}} xmm0 = (xmm3 * mem) +/- xmm0
+; SKL-NEXT:    addq $48, %rax
+; SKL-NEXT:    decq %rdx
+; SKL-NEXT:    jne .LBB6_1
+; SKL-NEXT:  # %bb.2: # %exit
+; SKL-NEXT:    retq
+;
+; SPR-LABEL: cdot3_ps128:
+; SPR:       # %bb.0: # %entry
+; SPR-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; SPR-NEXT:    movl $32, %eax
+; SPR-NEXT:    .p2align 4
+; SPR-NEXT:  .LBB6_1: # %loop
+; SPR-NEXT:    # =>This Inner Loop Header: Depth=1
+; SPR-NEXT:    vmovups -32(%rdi,%rax), %xmm1
+; SPR-NEXT:    vmovups -16(%rdi,%rax), %xmm2
+; SPR-NEXT:    vmulps -32(%rsi,%rax), %xmm1, %xmm1
+; SPR-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    vmulps -16(%rsi,%rax), %xmm2, %xmm1
+; SPR-NEXT:    vmovups (%rdi,%rax), %xmm2
+; SPR-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    vmulps (%rsi,%rax), %xmm2, %xmm1
+; SPR-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    addq $48, %rax
+; SPR-NEXT:    decq %rdx
+; SPR-NEXT:    jne .LBB6_1
+; SPR-NEXT:  # %bb.2: # %exit
+; SPR-NEXT:    retq
+;
+; ZNVER-LABEL: cdot3_ps128:
+; ZNVER:       # %bb.0: # %entry
+; ZNVER-NEXT:    movl $32, %eax
+; ZNVER-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; ZNVER-NEXT:    .p2align 4
+; ZNVER-NEXT:  .LBB6_1: # %loop
+; ZNVER-NEXT:    # =>This Inner Loop Header: Depth=1
+; ZNVER-NEXT:    vmovups -32(%rdi,%rax), %xmm1
+; ZNVER-NEXT:    vmovups -16(%rdi,%rax), %xmm2
+; ZNVER-NEXT:    vmovups (%rdi,%rax), %xmm3
+; ZNVER-NEXT:    vmulps -32(%rsi,%rax), %xmm1, %xmm1
+; ZNVER-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; ZNVER-NEXT:    vmulps -16(%rsi,%rax), %xmm2, %xmm1
+; ZNVER-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; ZNVER-NEXT:    vmulps (%rsi,%rax), %xmm3, %xmm1
+; ZNVER-NEXT:    addq $48, %rax
+; ZNVER-NEXT:    decq %rdx
+; ZNVER-NEXT:    vaddsubps %xmm0, %xmm1, %xmm0
+; ZNVER-NEXT:    jne .LBB6_1
+; ZNVER-NEXT:  # %bb.2: # %exit
+; ZNVER-NEXT:    retq
+entry:
+  br label %loop
+
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i.next, %loop ]
+  %acc = phi <4 x float> [ zeroinitializer, %entry ], [ %acc.next, %loop ]
+  %pa = getelementptr inbounds [3 x <4 x float>], ptr %a, i64 %i
+  %a0 = load <4 x float>, ptr %pa, align 4
+  %pa1 = getelementptr inbounds i8, ptr %pa, i64 16
+  %a1v = load <4 x float>, ptr %pa1, align 4
+  %pa2 = getelementptr inbounds i8, ptr %pa, i64 32
+  %a2v = load <4 x float>, ptr %pa2, align 4
+  %pb = getelementptr inbounds [3 x <4 x float>], ptr %b, i64 %i
+  %b0 = load <4 x float>, ptr %pb, align 4
+  %pb1 = getelementptr inbounds i8, ptr %pb, i64 16
+  %b1v = load <4 x float>, ptr %pb1, align 4
+  %pb2 = getelementptr inbounds i8, ptr %pb, i64 32
+  %b2v = load <4 x float>, ptr %pb2, align 4
+  %m1 = fmul contract <4 x float> %a0, %b0
+  %s1 = fsub contract <4 x float> %m1, %acc
+  %d1 = fadd contract <4 x float> %m1, %acc
+  %l1 = shufflevector <4 x float> %s1, <4 x float> %d1, <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+  %m2 = fmul contract <4 x float> %a1v, %b1v
+  %s2 = fsub contract <4 x float> %m2, %l1
+  %d2 = fadd contract <4 x float> %m2, %l1
+  %l2 = shufflevector <4 x float> %s2, <4 x float> %d2, <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+  %m3 = fmul contract <4 x float> %a2v, %b2v
+  %s3 = fsub contract <4 x float> %m3, %l2
+  %d3 = fadd contract <4 x float> %m3, %l2
+  %acc.next = shufflevector <4 x float> %s3, <4 x float> %d3, <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+  %i.next = add nuw i64 %i, 1
+  %done = icmp eq i64 %i.next, %n
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret <4 x float> %acc.next
+}
+
+; An inner sub/add link has no ADDSUB form: where the chain is not fused, it
+; is left to the generic lowering.
+define <2 x double> @cdot_inner_subadd_pd128(ptr %a, ptr %b, i64 %n) {
+; HSW-LABEL: cdot_inner_subadd_pd128:
+; HSW:       # %bb.0: # %entry
+; HSW-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; HSW-NEXT:    movl $16, %eax
+; HSW-NEXT:    .p2align 4
+; HSW-NEXT:  .LBB7_1: # %loop
+; HSW-NEXT:    # =>This Inner Loop Header: Depth=1
+; HSW-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; HSW-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; HSW-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; HSW-NEXT:    vaddpd %xmm0, %xmm1, %xmm3
+; HSW-NEXT:    vsubpd %xmm0, %xmm1, %xmm0
+; HSW-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm1
+; HSW-NEXT:    vsubpd %xmm3, %xmm1, %xmm2
+; HSW-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
+; HSW-NEXT:    vblendpd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; HSW-NEXT:    addq $32, %rax
+; HSW-NEXT:    decq %rdx
+; HSW-NEXT:    jne .LBB7_1
+; HSW-NEXT:  # %bb.2: # %exit
+; HSW-NEXT:    retq
+;
+; SKL-LABEL: cdot_inner_subadd_pd128:
+; SKL:       # %bb.0: # %entry
+; SKL-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; SKL-NEXT:    movl $16, %eax
+; SKL-NEXT:    .p2align 4
+; SKL-NEXT:  .LBB7_1: # %loop
+; SKL-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKL-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; SKL-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; SKL-NEXT:    vfmsubadd231pd {{.*#+}} xmm0 = (xmm1 * mem) -/+ xmm0
+; SKL-NEXT:    vfmaddsub231pd {{.*#+}} xmm0 = (xmm2 * mem) +/- xmm0
+; SKL-NEXT:    addq $32, %rax
+; SKL-NEXT:    decq %rdx
+; SKL-NEXT:    jne .LBB7_1
+; SKL-NEXT:  # %bb.2: # %exit
+; SKL-NEXT:    retq
+;
+; SPR-LABEL: cdot_inner_subadd_pd128:
+; SPR:       # %bb.0: # %entry
+; SPR-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; SPR-NEXT:    movl $16, %eax
+; SPR-NEXT:    .p2align 4
+; SPR-NEXT:  .LBB7_1: # %loop
+; SPR-NEXT:    # =>This Inner Loop Header: Depth=1
+; SPR-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; SPR-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; SPR-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; SPR-NEXT:    vaddpd %xmm0, %xmm1, %xmm3
+; SPR-NEXT:    vsubpd %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm1
+; SPR-NEXT:    vsubpd %xmm3, %xmm1, %xmm2
+; SPR-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    vmovsd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; SPR-NEXT:    addq $32, %rax
+; SPR-NEXT:    decq %rdx
+; SPR-NEXT:    jne .LBB7_1
+; SPR-NEXT:  # %bb.2: # %exit
+; SPR-NEXT:    retq
+;
+; ZNVER-LABEL: cdot_inner_subadd_pd128:
+; ZNVER:       # %bb.0: # %entry
+; ZNVER-NEXT:    movl $16, %eax
+; ZNVER-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; ZNVER-NEXT:    .p2align 4
+; ZNVER-NEXT:  .LBB7_1: # %loop
+; ZNVER-NEXT:    # =>This Inner Loop Header: Depth=1
+; ZNVER-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; ZNVER-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; ZNVER-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; ZNVER-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm4
+; ZNVER-NEXT:    addq $32, %rax
+; ZNVER-NEXT:    decq %rdx
+; ZNVER-NEXT:    vaddpd %xmm0, %xmm1, %xmm3
+; ZNVER-NEXT:    vsubpd %xmm0, %xmm1, %xmm0
+; ZNVER-NEXT:    vsubpd %xmm3, %xmm4, %xmm2
+; ZNVER-NEXT:    vaddpd %xmm0, %xmm4, %xmm0
+; ZNVER-NEXT:    vmovsd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; ZNVER-NEXT:    jne .LBB7_1
+; ZNVER-NEXT:  # %bb.2: # %exit
+; ZNVER-NEXT:    retq
+entry:
+  br label %loop
+
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i.next, %loop ]
+  %acc = phi <2 x double> [ zeroinitializer, %entry ], [ %acc.next, %loop ]
+  %pa = getelementptr inbounds [2 x <2 x double>], ptr %a, i64 %i
+  %a0 = load <2 x double>, ptr %pa, align 8
+  %pa1 = getelementptr inbounds i8, ptr %pa, i64 16
+  %a1v = load <2 x double>, ptr %pa1, align 8
+  %pb = getelementptr inbounds [2 x <2 x double>], ptr %b, i64 %i
+  %b0 = load <2 x double>, ptr %pb, align 8
+  %pb1 = getelementptr inbounds i8, ptr %pb, i64 16
+  %b1v = load <2 x double>, ptr %pb1, align 8
+  %m1 = fmul contract <2 x double> %a0, %b0
+  %d1 = fadd contract <2 x double> %m1, %acc
+  %s1 = fsub contract <2 x double> %m1, %acc
+  %l1 = shufflevector <2 x double> %d1, <2 x double> %s1, <2 x i32> <i32 0, i32 3>
+  %m2 = fmul contract <2 x double> %a1v, %b1v
+  %s2 = fsub contract <2 x double> %m2, %l1
+  %d2 = fadd contract <2 x double> %m2, %l1
+  %acc.next = shufflevector <2 x double> %s2, <2 x double> %d2, <2 x i32> <i32 0, i32 3>
+  %i.next = add nuw i64 %i, 1
+  %done = icmp eq i64 %i.next, %n
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret <2 x double> %acc.next
+}
+
+; An outer sub/add link has no ADDSUB form either.
+define <2 x double> @cdot_outer_subadd_pd128(ptr %a, ptr %b, i64 %n) {
+; HSW-LABEL: cdot_outer_subadd_pd128:
+; HSW:       # %bb.0: # %entry
+; HSW-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; HSW-NEXT:    movl $16, %eax
+; HSW-NEXT:    .p2align 4
+; HSW-NEXT:  .LBB8_1: # %loop
+; HSW-NEXT:    # =>This Inner Loop Header: Depth=1
+; HSW-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; HSW-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; HSW-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; HSW-NEXT:    vsubpd %xmm0, %xmm1, %xmm3
+; HSW-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
+; HSW-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm1
+; HSW-NEXT:    vaddpd %xmm3, %xmm1, %xmm2
+; HSW-NEXT:    vsubpd %xmm0, %xmm1, %xmm0
+; HSW-NEXT:    vblendpd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; HSW-NEXT:    addq $32, %rax
+; HSW-NEXT:    decq %rdx
+; HSW-NEXT:    jne .LBB8_1
+; HSW-NEXT:  # %bb.2: # %exit
+; HSW-NEXT:    retq
+;
+; SKL-LABEL: cdot_outer_subadd_pd128:
+; SKL:       # %bb.0: # %entry
+; SKL-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; SKL-NEXT:    movl $16, %eax
+; SKL-NEXT:    .p2align 4
+; SKL-NEXT:  .LBB8_1: # %loop
+; SKL-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKL-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; SKL-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; SKL-NEXT:    vfmaddsub231pd {{.*#+}} xmm0 = (xmm1 * mem) +/- xmm0
+; SKL-NEXT:    vfmsubadd231pd {{.*#+}} xmm0 = (xmm2 * mem) -/+ xmm0
+; SKL-NEXT:    addq $32, %rax
+; SKL-NEXT:    decq %rdx
+; SKL-NEXT:    jne .LBB8_1
+; SKL-NEXT:  # %bb.2: # %exit
+; SKL-NEXT:    retq
+;
+; SPR-LABEL: cdot_outer_subadd_pd128:
+; SPR:       # %bb.0: # %entry
+; SPR-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; SPR-NEXT:    movl $16, %eax
+; SPR-NEXT:    .p2align 4
+; SPR-NEXT:  .LBB8_1: # %loop
+; SPR-NEXT:    # =>This Inner Loop Header: Depth=1
+; SPR-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; SPR-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; SPR-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; SPR-NEXT:    vsubpd %xmm0, %xmm1, %xmm3
+; SPR-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm1
+; SPR-NEXT:    vaddpd %xmm3, %xmm1, %xmm2
+; SPR-NEXT:    vsubpd %xmm0, %xmm1, %xmm0
+; SPR-NEXT:    vmovsd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; SPR-NEXT:    addq $32, %rax
+; SPR-NEXT:    decq %rdx
+; SPR-NEXT:    jne .LBB8_1
+; SPR-NEXT:  # %bb.2: # %exit
+; SPR-NEXT:    retq
+;
+; ZNVER-LABEL: cdot_outer_subadd_pd128:
+; ZNVER:       # %bb.0: # %entry
+; ZNVER-NEXT:    movl $16, %eax
+; ZNVER-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; ZNVER-NEXT:    .p2align 4
+; ZNVER-NEXT:  .LBB8_1: # %loop
+; ZNVER-NEXT:    # =>This Inner Loop Header: Depth=1
+; ZNVER-NEXT:    vmovupd -16(%rdi,%rax), %xmm1
+; ZNVER-NEXT:    vmovupd (%rdi,%rax), %xmm2
+; ZNVER-NEXT:    vmulpd -16(%rsi,%rax), %xmm1, %xmm1
+; ZNVER-NEXT:    vmulpd (%rsi,%rax), %xmm2, %xmm4
+; ZNVER-NEXT:    addq $32, %rax
+; ZNVER-NEXT:    decq %rdx
+; ZNVER-NEXT:    vsubpd %xmm0, %xmm1, %xmm3
+; ZNVER-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
+; ZNVER-NEXT:    vaddpd %xmm3, %xmm4, %xmm2
+; ZNVER-NEXT:    vsubpd %xmm0, %xmm4, %xmm0
+; ZNVER-NEXT:    vmovsd {{.*#+}} xmm0 = xmm2[0],xmm0[1]
+; ZNVER-NEXT:    jne .LBB8_1
+; ZNVER-NEXT:  # %bb.2: # %exit
+; ZNVER-NEXT:    retq
+entry:
+  br label %loop
+
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i.next, %loop ]
+  %acc = phi <2 x double> [ zeroinitializer, %entry ], [ %acc.next, %loop ]
+  %pa = getelementptr inbounds [2 x <2 x double>], ptr %a, i64 %i
+  %a0 = load <2 x double>, ptr %pa, align 8
+  %pa1 = getelementptr inbounds i8, ptr %pa, i64 16
+  %a1v = load <2 x double>, ptr %pa1, align 8
+  %pb = getelementptr inbounds [2 x <2 x double>], ptr %b, i64 %i
+  %b0 = load <2 x double>, ptr %pb, align 8
+  %pb1 = getelementptr inbounds i8, ptr %pb, i64 16
+  %b1v = load <2 x double>, ptr %pb1, align 8
+  %m1 = fmul contract <2 x double> %a0, %b0
+  %s1 = fsub contract <2 x double> %m1, %acc
+  %d1 = fadd contract <2 x double> %m1, %acc
+  %l1 = shufflevector <2 x double> %s1, <2 x double> %d1, <2 x i32> <i32 0, i32 3>
+  %m2 = fmul contract <2 x double> %a1v, %b1v
+  %d2 = fadd contract <2 x double> %m2, %l1
+  %s2 = fsub contract <2 x double> %m2, %l1
+  %acc.next = shufflevector <2 x double> %d2, <2 x double> %s2, <2 x i32> <i32 0, i32 3>
+  %i.next = add nuw i64 %i, 1
+  %done = icmp eq i64 %i.next, %n
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret <2 x double> %acc.next
 }
