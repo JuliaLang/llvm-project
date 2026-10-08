@@ -4327,7 +4327,15 @@ bool VectorCombine::foldShuffleChainsToReduce(Instruction &I) {
   if (!OrigCost.isValid() || !NewCost.isValid())
     return false;
 
-  if (VecOpEE->hasOneUse() ? (NewCost > OrigCost) : (NewCost >= OrigCost))
+  // Partially reducing a compare of a sub-128-bit vector lowers worse than the
+  // and/or chain it replaces (the subvector is extracted from a mask that
+  // needs extending first), so don't take it on a cost tie.
+  bool AllowTie = VecOpEE->hasOneUse();
+  if (IsPartialReduction)
+    if (auto *Cmp = dyn_cast<ICmpInst>(Cut->Src))
+      if (Cmp->getOperand(0)->getType()->getPrimitiveSizeInBits() < 128)
+        AllowTie = false;
+  if (AllowTie ? (NewCost > OrigCost) : (NewCost >= OrigCost))
     return false;
 
   Value *ReduceInput = Cut->Src;
