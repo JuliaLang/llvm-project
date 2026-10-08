@@ -643,6 +643,11 @@ def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
                                "VPMULLQ has a false dependency on dest register",
                                [], InlineIgnore>;
 
+def TuningSETCCFalseDeps : SubtargetFeature<"false-deps-setcc",
+                               "HasSETCCFalseDeps", "true",
+                               "SETcc has a false dependency on the upper bits of its dest register",
+                               [], InlineIgnore>;
+
 def TuningSBBDepBreaking : SubtargetFeature<"sbb-dep-breaking",
                                      "HasSBBDepBreaking", "true",
                                      "SBB with same register has no source dependency",
@@ -1078,7 +1083,8 @@ def ProcessorFeatures {
                                       TuningInsertVZEROUPPER,
                                       TuningAllowLight256Bit,
                                       TuningNoDomainDelayMov,
-                                      TuningNoDomainDelayShuffle];
+                                      TuningNoDomainDelayShuffle,
+                                      TuningSETCCFalseDeps];
   list<SubtargetFeature> HSWFeatures =
     !listconcat(IVBFeatures, HSWAdditionalFeatures);
 
@@ -1110,7 +1116,8 @@ def ProcessorFeatures {
                                       TuningAllowLight256Bit,
                                       TuningNoDomainDelayMov,
                                       TuningNoDomainDelayShuffle,
-                                      TuningNoDomainDelayBlend];
+                                      TuningNoDomainDelayBlend,
+                                      TuningSETCCFalseDeps];
   list<SubtargetFeature> SKLFeatures =
     !listconcat(BDWFeatures, SKLAdditionalFeatures);
 
@@ -1144,7 +1151,8 @@ def ProcessorFeatures {
                                       TuningNoDomainDelayMov,
                                       TuningNoDomainDelayShuffle,
                                       TuningNoDomainDelayBlend,
-                                      TuningFastImmVectorShift];
+                                      TuningFastImmVectorShift,
+                                      TuningSETCCFalseDeps];
   list<SubtargetFeature> SKXFeatures =
     !listconcat(BDWFeatures, SKXAdditionalFeatures);
 
@@ -1187,7 +1195,8 @@ def ProcessorFeatures {
                                       TuningNoDomainDelayShuffle,
                                       TuningNoDomainDelayBlend,
                                       TuningFastImmVectorShift,
-                                      TuningSlowPMULLQ];
+                                      TuningSlowPMULLQ,
+                                      TuningSETCCFalseDeps];
   list<SubtargetFeature> CNLFeatures =
     !listconcat(SKLFeatures, CNLAdditionalFeatures);
 
@@ -1235,7 +1244,8 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
-  list<SubtargetFeature> TGLTuning = ICLTuning;
+  list<SubtargetFeature> TGLAdditionalTuning = [TuningSETCCFalseDeps];
+  list<SubtargetFeature> TGLTuning = !listconcat(ICLTuning, TGLAdditionalTuning);
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
@@ -1260,7 +1270,8 @@ def ProcessorFeatures {
                                                 TuningPERMFalseDeps,
                                                 TuningRANGEFalseDeps,
                                                 TuningGETMANTFalseDeps,
-                                                TuningMULLQFalseDeps];
+                                                TuningMULLQFalseDeps,
+                                                TuningSETCCFalseDeps];
   list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
   list<SubtargetFeature> SPRFeatures =
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
@@ -1303,7 +1314,9 @@ def ProcessorFeatures {
   list<SubtargetFeature> DMRFeatures =
     !listconcat(GNRDFeatures, DMRAdditionalFeatures);
   list<SubtargetFeature> DMRAdditionalTuning = [TuningPreferLegacySetCC];
-  list<SubtargetFeature> DMRTuning = !listconcat(GNRTuning, DMRAdditionalTuning);
+  list<SubtargetFeature> DMRRemoveTuning = [TuningSETCCFalseDeps];
+  list<SubtargetFeature> DMRTuning =
+      !listremove(!listconcat(GNRTuning, DMRAdditionalTuning), DMRRemoveTuning);
 
   // Atom
   list<SubtargetFeature> AtomFeatures = [FeatureX87,
@@ -1418,7 +1431,8 @@ def ProcessorFeatures {
                                                 TuningPreferMovmskOverVTest,
                                                 TuningFastImmVectorShift,
                                                 TuningSlowPMULLQ];
-  list<SubtargetFeature> ADLRemoveTuning = [TuningPOPCNTFalseDeps];
+  list<SubtargetFeature> ADLRemoveTuning = [TuningPOPCNTFalseDeps,
+                                            TuningSETCCFalseDeps];
   list<SubtargetFeature> ADLTuning =
       !listremove(!listconcat(SKLTuning, ADLAdditionalTuning), ADLRemoveTuning);
   list<SubtargetFeature> ADLFeatures =
@@ -1745,7 +1759,8 @@ def ProcessorFeatures {
 
   list<SubtargetFeature> ZN5AdditionalTuning = [TuningSlowIndirectCall,
                                                 TuningTZCNTFalseDeps,
-                                                TuningBLSFalseDeps
+                                                TuningBLSFalseDeps,
+                                                TuningSETCCFalseDeps
                                                 ];
   list<SubtargetFeature> ZN5Tuning =
     !listconcat(ZN4Tuning, ZN5AdditionalTuning);
