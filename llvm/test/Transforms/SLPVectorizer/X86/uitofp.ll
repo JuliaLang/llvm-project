@@ -537,6 +537,64 @@ define [2 x float] @uitofp_2i64_2f32_fdiv(ptr %p, float %y) #0 {
 ; SSE-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
 ; SSE-NEXT:    ret [2 x float] [[R1]]
 ;
+; AVX1-LABEL: @uitofp_2i64_2f32_fdiv(
+; AVX1-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr [[P:%.*]], i64 8
+; AVX1-NEXT:    [[LD1:%.*]] = load i64, ptr [[P1]], align 8
+; AVX1-NEXT:    [[LD0:%.*]] = load i64, ptr [[P]], align 8
+; AVX1-NEXT:    [[CVT1:%.*]] = uitofp i64 [[LD1]] to float
+; AVX1-NEXT:    [[CVT0:%.*]] = uitofp i64 [[LD0]] to float
+; AVX1-NEXT:    [[TMP1:%.*]] = insertelement <2 x float> poison, float [[CVT0]], i64 0
+; AVX1-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> [[TMP1]], float [[CVT1]], i64 1
+; AVX1-NEXT:    [[TMP3:%.*]] = insertelement <2 x float> poison, float [[Y:%.*]], i64 0
+; AVX1-NEXT:    [[TMP4:%.*]] = shufflevector <2 x float> [[TMP3]], <2 x float> poison, <2 x i32> zeroinitializer
+; AVX1-NEXT:    [[TMP5:%.*]] = fdiv <2 x float> [[TMP2]], [[TMP4]]
+; AVX1-NEXT:    [[TMP6:%.*]] = extractelement <2 x float> [[TMP5]], i64 0
+; AVX1-NEXT:    [[R0:%.*]] = insertvalue [2 x float] poison, float [[TMP6]], 0
+; AVX1-NEXT:    [[TMP7:%.*]] = extractelement <2 x float> [[TMP5]], i64 1
+; AVX1-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
+; AVX1-NEXT:    ret [2 x float] [[R1]]
+;
+; AVX2-LABEL: @uitofp_2i64_2f32_fdiv(
+; AVX2-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr [[P:%.*]], i64 8
+; AVX2-NEXT:    [[LD1:%.*]] = load i64, ptr [[P1]], align 8
+; AVX2-NEXT:    [[LD0:%.*]] = load i64, ptr [[P]], align 8
+; AVX2-NEXT:    [[CVT1:%.*]] = uitofp i64 [[LD1]] to float
+; AVX2-NEXT:    [[CVT0:%.*]] = uitofp i64 [[LD0]] to float
+; AVX2-NEXT:    [[TMP1:%.*]] = insertelement <2 x float> poison, float [[CVT0]], i64 0
+; AVX2-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> [[TMP1]], float [[CVT1]], i64 1
+; AVX2-NEXT:    [[TMP3:%.*]] = insertelement <2 x float> poison, float [[Y:%.*]], i64 0
+; AVX2-NEXT:    [[TMP4:%.*]] = shufflevector <2 x float> [[TMP3]], <2 x float> poison, <2 x i32> zeroinitializer
+; AVX2-NEXT:    [[TMP5:%.*]] = fdiv <2 x float> [[TMP2]], [[TMP4]]
+; AVX2-NEXT:    [[TMP6:%.*]] = extractelement <2 x float> [[TMP5]], i64 0
+; AVX2-NEXT:    [[R0:%.*]] = insertvalue [2 x float] poison, float [[TMP6]], 0
+; AVX2-NEXT:    [[TMP7:%.*]] = extractelement <2 x float> [[TMP5]], i64 1
+; AVX2-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
+; AVX2-NEXT:    ret [2 x float] [[R1]]
+;
+; AVX512-LABEL: @uitofp_2i64_2f32_fdiv(
+; AVX512-NEXT:    [[LD0:%.*]] = load i64, ptr [[P:%.*]], align 8
+; AVX512-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 8
+; AVX512-NEXT:    [[LD1:%.*]] = load i64, ptr [[P1]], align 8
+; AVX512-NEXT:    [[CVT0:%.*]] = uitofp i64 [[LD0]] to float
+; AVX512-NEXT:    [[CVT1:%.*]] = uitofp i64 [[LD1]] to float
+; AVX512-NEXT:    [[TMP6:%.*]] = fdiv float [[CVT0]], [[Y:%.*]]
+; AVX512-NEXT:    [[TMP7:%.*]] = fdiv float [[CVT1]], [[Y]]
+; AVX512-NEXT:    [[R0:%.*]] = insertvalue [2 x float] poison, float [[TMP6]], 0
+; AVX512-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
+; AVX512-NEXT:    ret [2 x float] [[R1]]
+;
+; AVX256DQ-LABEL: @uitofp_2i64_2f32_fdiv(
+; AVX256DQ-NEXT:    [[LD0:%.*]] = load i64, ptr [[P:%.*]], align 8
+; AVX256DQ-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 8
+; AVX256DQ-NEXT:    [[LD1:%.*]] = load i64, ptr [[P1]], align 8
+; AVX256DQ-NEXT:    [[CVT0:%.*]] = uitofp i64 [[LD0]] to float
+; AVX256DQ-NEXT:    [[CVT1:%.*]] = uitofp i64 [[LD1]] to float
+; AVX256DQ-NEXT:    [[TMP6:%.*]] = fdiv float [[CVT0]], [[Y:%.*]]
+; AVX256DQ-NEXT:    [[TMP7:%.*]] = fdiv float [[CVT1]], [[Y]]
+; AVX256DQ-NEXT:    [[R0:%.*]] = insertvalue [2 x float] poison, float [[TMP6]], 0
+; AVX256DQ-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
+; AVX256DQ-NEXT:    ret [2 x float] [[R1]]
+;
 ; AVX256NODQ-LABEL: @uitofp_2i64_2f32_fdiv(
 ; AVX256NODQ-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr [[P:%.*]], i64 8
 ; AVX256NODQ-NEXT:    [[LD0:%.*]] = load i64, ptr [[P]], align 8
@@ -553,31 +611,6 @@ define [2 x float] @uitofp_2i64_2f32_fdiv(ptr %p, float %y) #0 {
 ; AVX256NODQ-NEXT:    [[TMP7:%.*]] = extractelement <2 x float> [[TMP5]], i64 1
 ; AVX256NODQ-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
 ; AVX256NODQ-NEXT:    ret [2 x float] [[R1]]
-;
-; AVX256DQ-LABEL: @uitofp_2i64_2f32_fdiv(
-; AVX256DQ-NEXT:    [[TMP1:%.*]] = load <2 x i64>, ptr [[P:%.*]], align 8
-; AVX256DQ-NEXT:    [[TMP2:%.*]] = uitofp <2 x i64> [[TMP1]] to <2 x float>
-; AVX256DQ-NEXT:    [[TMP3:%.*]] = insertelement <2 x float> poison, float [[Y:%.*]], i64 0
-; AVX256DQ-NEXT:    [[TMP4:%.*]] = shufflevector <2 x float> [[TMP3]], <2 x float> poison, <2 x i32> zeroinitializer
-; AVX256DQ-NEXT:    [[TMP5:%.*]] = fdiv <2 x float> [[TMP2]], [[TMP4]]
-; AVX256DQ-NEXT:    [[TMP6:%.*]] = extractelement <2 x float> [[TMP5]], i64 0
-; AVX256DQ-NEXT:    [[R0:%.*]] = insertvalue [2 x float] poison, float [[TMP6]], 0
-; AVX256DQ-NEXT:    [[TMP7:%.*]] = extractelement <2 x float> [[TMP5]], i64 1
-; AVX256DQ-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
-; AVX256DQ-NEXT:    ret [2 x float] [[R1]]
-;
-; AVX512-LABEL: @uitofp_2i64_2f32_fdiv(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <2 x i64>, ptr [[P:%.*]], align 8
-; AVX512-NEXT:    [[TMP2:%.*]] = uitofp <2 x i64> [[TMP1]] to <2 x float>
-; AVX512-NEXT:    [[TMP3:%.*]] = insertelement <2 x float> poison, float [[Y:%.*]], i64 0
-; AVX512-NEXT:    [[TMP4:%.*]] = shufflevector <2 x float> [[TMP3]], <2 x float> poison, <2 x i32> zeroinitializer
-; AVX512-NEXT:    [[TMP5:%.*]] = fdiv <2 x float> [[TMP2]], [[TMP4]]
-; AVX512-NEXT:    [[TMP6:%.*]] = extractelement <2 x float> [[TMP5]], i64 0
-; AVX512-NEXT:    [[R0:%.*]] = insertvalue [2 x float] poison, float [[TMP6]], 0
-; AVX512-NEXT:    [[TMP7:%.*]] = extractelement <2 x float> [[TMP5]], i64 1
-; AVX512-NEXT:    [[R1:%.*]] = insertvalue [2 x float] [[R0]], float [[TMP7]], 1
-; AVX512-NEXT:    ret [2 x float] [[R1]]
-;
   %ld0 = load i64, ptr %p, align 8
   %p1 = getelementptr inbounds i8, ptr %p, i64 8
   %ld1 = load i64, ptr %p1, align 8
