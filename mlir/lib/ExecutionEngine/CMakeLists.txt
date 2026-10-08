@@ -34,6 +34,7 @@ add_mlir_library(MLIRExecutionEngineUtils
 
   DEPENDS
   intrinsics_gen
+  vt_gen
 
   LINK_COMPONENTS
   Analysis
