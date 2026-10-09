@@ -3875,6 +3875,11 @@ private:
   /// scalar FMA fusion getNumScalarInsts() accounts for.
   bool isFMulFusedIntoAltFAddSub(const TreeEntry &TE) const;
 
+  /// Returns true if the splat gather \p TE only feeds fmuls fused into
+  /// fmuladds, which AArch64 selects as indexed FMLA/FMLS that read the
+  /// scalar from lane 0, so that no broadcast is emitted.
+  bool isSplatFoldedIntoFMA(const TreeEntry &TE) const;
+
   /// Return information about the vector formed for the specified index
   /// of a vector of (the same) instruction.
   TargetTransformInfo::OperandValueInfo
@@ -13985,6 +13990,37 @@ bool BoUpSLP::isFMulFusedIntoAltFAddSub(const TreeEntry &TE) const {
       .isValid();
 }
 
+bool BoUpSLP::isSplatFoldedIntoFMA(const TreeEntry &TE) const {
+  if (!F->getParent()->getTargetTriple().isAArch64() ||
+      allConstant(TE.Scalars) || !isSplat(TE.Scalars))
+    return false;
+  Value *V = *find_if_not(TE.Scalars, IsaPred<UndefValue>);
+  if (isa<ExtractElementInst>(V) || TE.findLaneForValue(V) != 0 ||
+      !(V->getType()->isFloatTy() || V->getType()->isDoubleTy()))
+    return false;
+  bool Found = false;
+  for (const std::unique_ptr<TreeEntry> &Ptr : VectorizableTree) {
+    const TreeEntry *G = Ptr.get();
+    if (DeletedNodes.contains(G) ||
+        !(G->isGather() || TransformedToGatherNodes.contains(G)) ||
+        !TE.isSame(G->Scalars))
+      continue;
+    const TreeEntry *UserTE = G->UserTreeIndex.UserTE;
+    if (!UserTE || !UserTE->hasState() || UserTE->isAltShuffle() ||
+        TransformedToGatherNodes.contains(UserTE) ||
+        UserTE->State != TreeEntry::CombinedVectorize ||
+        UserTE->getOpcode() != Instruction::FMul ||
+        UserTE->getNumOperands() != 2)
+      return false;
+    // Only one operand can be taken from a lane.
+    ArrayRef<Value *> Other = UserTE->getOperand(1 - G->UserTreeIndex.EdgeIdx);
+    if (all_equal(Other) && !isConstant(Other.front()))
+      return false;
+    Found = true;
+  }
+  return Found;
+}
+
 unsigned BoUpSLP::getNumVectorInsts() const {
   unsigned Count = 0;
   SmallPtrSet<Value *, 4> GatherExtractSourceVecs;
@@ -14018,7 +14054,7 @@ unsigned BoUpSLP::getNumVectorInsts() const {
         for (Value *V : TE.Scalars)
           if (auto *EE = dyn_cast<ExtractElementInst>(V))
             GatherExtractSourceVecs.insert(EE->getVectorOperand());
-      } else {
+      } else if (!isSplatFoldedIntoFMA(TE)) {
         for (Value *V : TE.Scalars) {
           if (!isConstant(V))
             ++Count;
