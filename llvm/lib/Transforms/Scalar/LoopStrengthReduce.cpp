@@ -1534,6 +1534,19 @@ void Cost::RatePrimaryRegister(const Formula &F, const SCEV *Reg,
   }
 }
 
+/// Test whether any fixup of \p LU is inside a loop that contains \p L, where
+/// it runs on every iteration of that loop rather than once.
+static bool hasFixupInOuterLoop(const LSRUse &LU, const Loop &L) {
+  const Loop *Outermost = L.getOutermostLoop();
+  return Outermost != &L && any_of(LU.Fixups, [&](const LSRFixup &LF) {
+           // A PHI uses its operand at the end of an incoming block. Only count
+           // it if the PHI's block is in the loop too: on an exit edge of the
+           // loop, it runs once per execution of the loop.
+           return Outermost->contains(LF.UserInst) &&
+                  !LF.isUseFullyOutsideLoop(Outermost);
+         });
+}
+
 void Cost::RateFormula(const Formula &F, SmallPtrSetImpl<const SCEV *> &Regs,
                        const DenseSet<const SCEV *> &VisitedRegs,
                        const LSRUse &LU, bool HardwareLoopProfitable,
@@ -1568,11 +1581,11 @@ void Cost::RateFormula(const Formula &F, SmallPtrSetImpl<const SCEV *> &Regs,
 
   // Determine how many (unfolded) adds we'll need inside the loop.
   size_t NumBaseParts = F.getNumRegs();
+  bool ScaleFolded = F.Scale && isAMCompletelyFolded(*TTI, LU, F);
   if (NumBaseParts > 1)
     // Do not count the base and a possible second register if the target
     // allows to fold 2 registers.
-    C.NumBaseAdds +=
-        NumBaseParts - (1 + (F.Scale && isAMCompletelyFolded(*TTI, LU, F)));
+    C.NumBaseAdds += NumBaseParts - (1 + ScaleFolded);
   C.NumBaseAdds += (F.UnfoldedOffset.isNonZero());
 
   // Accumulate non-free scaling amounts.
@@ -1637,9 +1650,19 @@ void Cost::RateFormula(const Formula &F, SmallPtrSetImpl<const SCEV *> &Regs,
   // Each new AddRec adds 1 instruction to calculation.
   C.Insns += (C.AddRecCost - PrevAddRecCost);
 
-  // BaseAdds adds instructions for unfolded registers.
-  if (LU.Kind != LSRUse::ICmpZero)
+  // BaseAdds adds instructions for unfolded registers. An ICmpZero use can
+  // fold a -1 scaled register into the other operand of the compare, which
+  // NumBaseAdds already accounts for; anything else has to be added up before
+  // the compare. Count that when the compare is in the loop.
+  if (LU.Kind != LSRUse::ICmpZero || !LU.AllFixupsOutsideLoop)
     C.Insns += C.NumBaseAdds - PrevNumBaseAdds;
+  // A Special use folds a -1 scaled register like an ICmpZero use does, but
+  // expanding it takes a sub, or a neg for a lone scaled register. Count that
+  // when the use is inside an outer loop, where it runs on every iteration of
+  // that loop rather than once.
+  if (LU.Kind == LSRUse::Special && F.Scale == -1 && ScaleFolded &&
+      hasFixupInOuterLoop(LU, *L))
+    ++C.Insns;
   assert(isValid() && "invalid cost");
 }
 
