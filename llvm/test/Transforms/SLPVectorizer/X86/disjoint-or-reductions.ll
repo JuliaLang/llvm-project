@@ -418,12 +418,23 @@ define i64 @bitcast_loads_i32(ptr noalias %p, ptr noalias %p1) {
 
 define i32 @mixed_sext_zext_loads(ptr %p) {
 ; CHECK-LABEL: @mixed_sext_zext_loads(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr [[P:%.*]], align 1
-; CHECK-NEXT:    [[TMP2:%.*]] = zext <4 x i8> [[TMP1]] to <4 x i32>
-; CHECK-NEXT:    [[TMP3:%.*]] = sext <4 x i8> [[TMP1]] to <4 x i32>
-; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> [[TMP3]], <4 x i32> <i32 0, i32 5, i32 2, i32 3>
-; CHECK-NEXT:    [[TMP5:%.*]] = shl <4 x i32> [[TMP4]], <i32 0, i32 8, i32 16, i32 24>
-; CHECK-NEXT:    [[TMP6:%.*]] = call i32 @llvm.vector.reduce.or.v4i32(<4 x i32> [[TMP5]])
+; CHECK-NEXT:    [[V0:%.*]] = load i8, ptr [[P:%.*]], align 1
+; CHECK-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 1
+; CHECK-NEXT:    [[V1:%.*]] = load i8, ptr [[P1]], align 1
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 2
+; CHECK-NEXT:    [[V2:%.*]] = load i8, ptr [[P2]], align 1
+; CHECK-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 3
+; CHECK-NEXT:    [[V3:%.*]] = load i8, ptr [[P3]], align 1
+; CHECK-NEXT:    [[Z0:%.*]] = zext i8 [[V0]] to i32
+; CHECK-NEXT:    [[Z1:%.*]] = sext i8 [[V1]] to i32
+; CHECK-NEXT:    [[Z2:%.*]] = zext i8 [[V2]] to i32
+; CHECK-NEXT:    [[Z3:%.*]] = zext i8 [[V3]] to i32
+; CHECK-NEXT:    [[S1:%.*]] = shl i32 [[Z1]], 8
+; CHECK-NEXT:    [[S2:%.*]] = shl i32 [[Z2]], 16
+; CHECK-NEXT:    [[S3:%.*]] = shl i32 [[Z3]], 24
+; CHECK-NEXT:    [[O1:%.*]] = or disjoint i32 [[Z0]], [[S1]]
+; CHECK-NEXT:    [[O2:%.*]] = or disjoint i32 [[O1]], [[S2]]
+; CHECK-NEXT:    [[TMP6:%.*]] = or disjoint i32 [[O2]], [[S3]]
 ; CHECK-NEXT:    ret i32 [[TMP6]]
 ;
   %v0 = load i8, ptr %p, align 1
