@@ -186,6 +186,10 @@ static cl::opt<unsigned> PHINodeVectorizationBudget(
              "bundle size and the number of incoming values exceeds this "
              "value, to limit the compile time spent on wide PHIs"));
 
+static cl::opt<unsigned>
+    PHIListBudget("slp-phi-list-budget", cl::init(1024), cl::Hidden,
+                  cl::desc("Maximum size of the phi list to be vectorized"));
+
 // The maximum depth that the look-ahead score heuristic will explore.
 // The higher this value, the higher the compilation time overhead.
 static cl::opt<int> LookAheadMaxDepth(
@@ -29043,6 +29047,13 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
   bool Changed = false;
   bool CandidateFound = false;
   InstructionCost MinCost = SLPCostThreshold.getValue();
+  // The trees of the PHI nodes may walk the loop-carried chains, so the
+  // overlapping windows of a long list rebuild almost the same large trees.
+  // Limit total size to avoid compile time blow up.
+  const unsigned RejectedTreesBudget =
+      isa<PHINode>(I0) ? PHIListBudget.getValue()
+                       : std::numeric_limits<unsigned>::max();
+  unsigned RejectedTreesSize = 0;
 
   unsigned NextInst = 0, MaxInst = VL.size();
   for (unsigned VF = MaxVF; NextInst + 1 < MaxInst && VF >= MinVF;
@@ -29053,7 +29064,8 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
     auto *VecTy = getWidenedType(ScalarTy, VF);
     if (getNumberOfParts(*TTI, VecTy, ScalarTy) == VF)
       continue;
-    for (unsigned I = NextInst; I < MaxInst; ++I) {
+    for (unsigned I = NextInst;
+         I < MaxInst && RejectedTreesSize <= RejectedTreesBudget; ++I) {
       unsigned ActualVF = std::min(MaxInst - I, VF);
 
       if (!hasFullVectorsOrPowerOf2(*TTI, ScalarTy, ActualVF))
@@ -29085,8 +29097,10 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
                         << "\n");
 
       R.buildTree(Ops);
-      if (R.isTreeTinyAndNotFullyVectorizable())
+      if (R.isTreeTinyAndNotFullyVectorizable()) {
+        RejectedTreesSize += R.getTreeSize();
         continue;
+      }
       if (R.isProfitableToReorder()) {
         R.reorderTopToBottom();
         R.reorderBottomToTop(
@@ -29116,6 +29130,8 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
         I += VF - 1;
         NextInst = I + 1;
         Changed = true;
+      } else {
+        RejectedTreesSize += R.getTreeSize();
       }
     }
   }
