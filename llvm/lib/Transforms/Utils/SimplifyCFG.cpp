@@ -1115,6 +1115,7 @@ static void cloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
       continue;
 
     Instruction *NewBonusInst = BonusInst.clone();
+    NewBonusInst->insertInto(PredBlock, PTI->getIterator());
 
     if (!isa<DbgInfoIntrinsic>(BonusInst) &&
         PTI->getDebugLoc() != NewBonusInst->getDebugLoc()) {
@@ -1122,7 +1123,7 @@ static void cloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
       // branch, drop it. When we fold the bonus instructions we want to make
       // sure we reset their debug locations in order to avoid stepping on
       // dead code caused by folding dead branches.
-      NewBonusInst->setDebugLoc(DebugLoc());
+      NewBonusInst->dropLocation();
     }
 
     RemapInstruction(NewBonusInst, VMap,
@@ -1135,7 +1136,6 @@ static void cloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
     // location the call is moved to.
     NewBonusInst->dropUBImplyingAttrsAndMetadata();
 
-    NewBonusInst->insertInto(PredBlock, PTI->getIterator());
     auto Range = NewBonusInst->cloneDebugInfoFrom(&BonusInst);
     RemapDbgRecordRange(NewBonusInst->getModule(), Range, VMap,
                         RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
