@@ -965,15 +965,6 @@ void State::addInfoForInductions(BasicBlock &BB) {
       !SE.isSCEVable(PN->getType()))
     return;
 
-  // For latch conditions, we need to inject the condition that holds for the
-  // next iteration into the header. We limit to post-inc conditions, for which
-  // an original PN + Step != B condition results in a PN < B constraint in the
-  // header, which also holds for the next loop iteration. This would no longer
-  // be correct if the post-inc handling would inject a more precise PN + Step <
-  // B constraint instead.
-  if (&BB == Latch && !IncStep)
-    return;
-
   BasicBlock *InLoopSucc = nullptr;
   if (Pred == CmpInst::ICMP_NE)
     InLoopSucc = cast<CondBrInst>(BB.getTerminator())->getSuccessor(0);
@@ -994,6 +985,30 @@ void State::addInfoForInductions(BasicBlock &BB) {
                                ? PN->getIncomingBlock(1)
                                : PN->getIncomingBlock(0);
   Value *Backedge = PN->getIncomingValueForBlock(BackedgeBB);
+  DomTreeNode *HeaderDTN = DT.getNode(Header);
+
+  // BB is the header or the latch, so every iteration taking the backedge
+  // checked PN != B. For an increment by one, PN != B together with
+  // StartValue <= B (added precondition) imply PN <= B.
+  const APInt *Step;
+  bool HasHeaderBound =
+      !IncStep && match(Backedge, m_c_Add(m_Specific(PN), m_APInt(Step))) &&
+      Step->isOne();
+  if (HasHeaderBound) {
+    for (CmpInst::Predicate BoundPred : {CmpInst::ICMP_ULE, CmpInst::ICMP_SLE})
+      WorkList.push_back(FactOrCheck::getConditionFact(
+          HeaderDTN, BoundPred, PN, B, ConditionTy(BoundPred, StartValue, B)));
+  }
+
+  // For latch conditions, we need to inject the condition that holds for the
+  // next iteration into the header. We limit to post-inc conditions, for which
+  // an original PN + Step != B condition results in a PN < B constraint in the
+  // header, which also holds for the next loop iteration. This would no longer
+  // be correct if the post-inc handling would inject a more precise PN + Step <
+  // B constraint instead.
+  if (&BB == Latch && !IncStep)
+    return;
+
   const APInt *StepOffset = nullptr;
   const SCEV *StartSCEV = nullptr;
   OverflowingBinaryOperator *Inc = nullptr;
