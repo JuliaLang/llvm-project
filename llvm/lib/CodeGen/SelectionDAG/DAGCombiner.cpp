@@ -74,6 +74,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iterator>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -2369,29 +2370,43 @@ SDValue DAGCombiner::visitTokenFactor(SDNode *N) {
   SmallPtrSet<SDNode *, 16> SeenChains;
   bool DidPruneOps = false;
 
+  // Index of each operand in Ops, for operands that may be found by the search.
+  DenseMap<SDNode *, unsigned> OpIndex;
   unsigned NumLeftToConsider = 0;
   for (const SDValue &Op : Ops) {
+    OpIndex.try_emplace(Op.getNode(), NumLeftToConsider);
     Worklist.push_back(std::make_pair(Op.getNode(), NumLeftToConsider++));
     OpWorkCount.push_back(1);
   }
 
-  auto AddToWorklist = [&](unsigned CurIdx, SDNode *Op, unsigned OpNumber) {
+  // When the search from one operand reaches another, the pending searches of
+  // the second are re-marked as belonging to the first.  Rather than rewriting
+  // the remaining worklist each time, record the re-marking here and resolve
+  // it when a worklist entry is processed.
+  SmallVector<unsigned, 8> RemarkedAs(Ops.size());
+  std::iota(RemarkedAs.begin(), RemarkedAs.end(), 0);
+  auto GetOpNumber = [&](unsigned OpNumber) {
+    unsigned Root = OpNumber;
+    while (RemarkedAs[Root] != Root)
+      Root = RemarkedAs[Root];
+    while (RemarkedAs[OpNumber] != Root)
+      OpNumber = std::exchange(RemarkedAs[OpNumber], Root);
+    return Root;
+  };
+
+  auto AddToWorklist = [&](SDNode *Op, unsigned OpNumber) {
     // If this is an Op, we can remove the op from the list. Remark any
     // search associated with it as from the current OpNumber.
     if (SeenOps.contains(Op)) {
       Changed = true;
       DidPruneOps = true;
-      unsigned OrigOpNumber = 0;
-      while (OrigOpNumber < Ops.size() && Ops[OrigOpNumber].getNode() != Op)
-        OrigOpNumber++;
-      assert((OrigOpNumber != Ops.size()) &&
-             "expected to find TokenFactor Operand");
-      // Re-mark worklist from OrigOpNumber to OpNumber
-      for (unsigned i = CurIdx + 1; i < Worklist.size(); ++i) {
-        if (Worklist[i].second == OrigOpNumber) {
-          Worklist[i].second = OpNumber;
-        }
-      }
+      auto It = OpIndex.find(Op);
+      assert(It != OpIndex.end() && "expected to find TokenFactor Operand");
+      unsigned OrigOpNumber = It->second;
+      // Only pending searches still marked as OrigOpNumber are re-marked, so
+      // do nothing if they were already re-marked as some other operand.
+      if (RemarkedAs[OrigOpNumber] == OrigOpNumber)
+        RemarkedAs[OrigOpNumber] = OpNumber;
       OpWorkCount[OpNumber] += OpWorkCount[OrigOpNumber];
       OpWorkCount[OrigOpNumber] = 0;
       NumLeftToConsider--;
@@ -2408,7 +2423,7 @@ SDValue DAGCombiner::visitTokenFactor(SDNode *N) {
     if (NumLeftToConsider <= 1)
       break;
     auto CurNode = Worklist[i].first;
-    auto CurOpNumber = Worklist[i].second;
+    auto CurOpNumber = GetOpNumber(Worklist[i].second);
     assert((OpWorkCount[CurOpNumber] > 0) &&
            "Node should not appear in worklist");
     switch (CurNode->getOpcode()) {
@@ -2421,17 +2436,17 @@ SDValue DAGCombiner::visitTokenFactor(SDNode *N) {
       break;
     case ISD::TokenFactor:
       for (const SDValue &Op : CurNode->op_values())
-        AddToWorklist(i, Op.getNode(), CurOpNumber);
+        AddToWorklist(Op.getNode(), CurOpNumber);
       break;
     case ISD::LIFETIME_START:
     case ISD::LIFETIME_END:
     case ISD::CopyFromReg:
     case ISD::CopyToReg:
-      AddToWorklist(i, CurNode->getOperand(0).getNode(), CurOpNumber);
+      AddToWorklist(CurNode->getOperand(0).getNode(), CurOpNumber);
       break;
     default:
       if (auto *MemNode = dyn_cast<MemSDNode>(CurNode))
-        AddToWorklist(i, MemNode->getChain().getNode(), CurOpNumber);
+        AddToWorklist(MemNode->getChain().getNode(), CurOpNumber);
       break;
     }
     OpWorkCount[CurOpNumber]--;
