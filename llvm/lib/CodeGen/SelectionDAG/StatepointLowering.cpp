@@ -14,6 +14,7 @@
 #include "StatepointLowering.h"
 #include "SelectionDAGBuilder.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
@@ -1212,6 +1213,61 @@ void SelectionDAGBuilder::LowerCallSiteWithDeoptBundle(
   LowerCallSiteWithDeoptBundleImpl(Call, Callee, EHPadBB,
                                    /* VarArgDisallowed = */ false,
                                    /* ForceVoidReturnTy  = */ false);
+}
+
+void SelectionDAGBuilder::removeDeadStatepointReloads() {
+  if (FuncInfo.StatepointStackSlots.empty())
+    return;
+
+  // Find the unused loads from statepoint spill slots, and the chain each one
+  // is ordered after.
+  const MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
+  MapVector<SDNode *, SDValue> DeadReloads;
+  for (SDNode &N : DAG.allnodes()) {
+    auto *LD = dyn_cast<LoadSDNode>(&N);
+    if (!LD || !LD->isSimple() || !LD->isUnindexed() || LD->hasAnyUseOfValue(0))
+      continue;
+    auto *FI = dyn_cast<FrameIndexSDNode>(LD->getBasePtr());
+    if (FI && MFI.isStatepointSpillSlotObjectIndex(FI->getIndex()))
+      DeadReloads.insert({LD, LD->getChain()});
+  }
+  if (DeadReloads.empty())
+    return;
+
+  // A reload may be ordered after another dead reload, so skip through those
+  // to the first chain that stays.
+  auto ResolveChain = [&](SDValue Chain) {
+    while (Chain.getResNo() == 1) {
+      auto It = DeadReloads.find(Chain.getNode());
+      if (It == DeadReloads.end())
+        break;
+      Chain = It->second;
+    }
+    return Chain;
+  };
+
+  SmallVector<SDValue, 16> From, To;
+  for (auto &[N, Chain] : DeadReloads) {
+    From.push_back(SDValue(N, 1));
+    To.push_back(ResolveChain(Chain));
+  }
+  SDValue Root = DAG.getRoot();
+  SDValue NewRoot = Root.getResNo() == 1 && DeadReloads.contains(Root.getNode())
+                        ? ResolveChain(Root)
+                        : Root;
+
+  // Updating the chain users can make a reload identical to another load, in
+  // which case one of the two is deleted, and a reload that absorbs a used load
+  // is no longer dead.  Track deletions and recheck uses before removing.
+  SmallPtrSet<SDNode *, 16> Deleted;
+  SelectionDAG::DAGNodeDeletedListener Listener(
+      DAG, [&](SDNode *N, SDNode *) { Deleted.insert(N); });
+  DAG.ReplaceAllUsesOfValuesWith(From.data(), To.data(), From.size());
+  if (NewRoot != Root)
+    DAG.setRoot(NewRoot);
+  for (SDNode *N : DeadReloads.keys())
+    if (!Deleted.contains(N) && N->use_empty())
+      DAG.RemoveDeadNode(N);
 }
 
 void SelectionDAGBuilder::visitGCResult(const GCResultInst &CI) {

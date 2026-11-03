@@ -512,6 +512,14 @@ public:
   void LowerDeoptimizeCall(const CallInst *CI);
   void LowerDeoptimizingReturn();
 
+  /// Remove reloads of relocated values from statepoint spill slots whose
+  /// results are unused once the whole block has been lowered.  Each
+  /// statepoint reloads every value it relocates, and when the only consumer
+  /// is a later statepoint that reuses the same slot the reload is dead.
+  /// Removing them together, rather than one at a time in DAGCombiner, keeps
+  /// the cost linear in the number of reloads.
+  void removeDeadStatepointReloads();
+
   void LowerCallSiteWithDeoptBundleImpl(const CallBase *Call, SDValue Callee,
                                         const BasicBlock *EHPadBB,
                                         bool VarArgDisallowed,

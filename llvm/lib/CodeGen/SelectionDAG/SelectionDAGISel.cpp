@@ -896,6 +896,7 @@ void SelectionDAGISel::SelectBasicBlock(BasicBlock::const_iterator Begin,
   CurDAG->setRoot(SDB->getControlRoot());
   HadTailCall = SDB->HasTailCall;
   SDB->resolveOrClearDbgInfo();
+  SDB->removeDeadStatepointReloads();
   SDB->clear();
 
   // Final step, emit the lowered DAG as machine code.
