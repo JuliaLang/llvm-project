@@ -224,9 +224,12 @@ static void computeLiveInValues(DominatorTree &DT, Function &F,
                                 GCPtrLivenessData &Data, GCStrategy *GC);
 
 /// Given results from the dataflow liveness computation, find the set of live
-/// Values at a particular instruction.
-static void findLiveSetAtInst(Instruction *inst, GCPtrLivenessData &Data,
-                              StatepointLiveSetTy &out, GCStrategy *GC);
+/// Values at each of the given calls.  Calls in the same block share a single
+/// backward walk of that block.
+static void findLiveSetsAtCalls(ArrayRef<CallBase *> Calls,
+                                GCPtrLivenessData &Data,
+                                MutableArrayRef<StatepointLiveSetTy> Out,
+                                GCStrategy *GC);
 
 static bool isGCPointerType(Type *T, GCStrategy *GC) {
   assert(GC && "GC Strategy for isGCPointerType cannot be null");
@@ -289,13 +292,10 @@ static std::string suffixed_name_or(Value *V, StringRef Suffix,
 // given instruction. The  analysis is performed immediately before the
 // given instruction. Values defined by that instruction are not considered
 // live.  Values used by that instruction are considered live.
-static void analyzeParsePointLiveness(
-    const ScalarOptions &Opts, DominatorTree &DT,
-    GCPtrLivenessData &OriginalLivenessData, CallBase *Call,
-    PartiallyConstructedSafepointRecord &Result, GCStrategy *GC) {
-  StatepointLiveSetTy LiveSet;
-  findLiveSetAtInst(Call, OriginalLivenessData, LiveSet, GC);
-
+static void
+analyzeParsePointLiveness(const ScalarOptions &Opts, CallBase *Call,
+                          StatepointLiveSetTy &LiveSet,
+                          PartiallyConstructedSafepointRecord &Result) {
   if (Opts.spp_print_liveset) {
     dbgs() << "Live Variables:\n";
     for (Value *V : LiveSet)
@@ -305,7 +305,7 @@ static void analyzeParsePointLiveness(
     dbgs() << "Safepoint For: " << Call->getCalledOperand()->getName() << "\n";
     dbgs() << "Number live values: " << LiveSet.size() << "\n";
   }
-  Result.LiveSet = LiveSet;
+  Result.LiveSet = std::move(LiveSet);
 }
 
 /// Returns true if V is a known base.
@@ -1323,14 +1323,6 @@ static void findBasePointers(DominatorTree &DT, DefiningValueMapTy &DVCache,
                    KnownBases);
 }
 
-/// Given an updated version of the dataflow liveness results, update the
-/// liveset and base pointer maps for the call site CS.
-static void recomputeLiveInValues(GCPtrLivenessData &RevisedLivenessData,
-                                  CallBase *Call,
-                                  PartiallyConstructedSafepointRecord &result,
-                                  PointerToBaseTy &PointerToBase,
-                                  GCStrategy *GC);
-
 static void recomputeLiveInValues(
     Function &F, DominatorTree &DT, ArrayRef<CallBase *> toUpdate,
     MutableArrayRef<struct PartiallyConstructedSafepointRecord> records,
@@ -1339,10 +1331,14 @@ static void recomputeLiveInValues(
   // again.  The old values are still live and will help it stabilize quickly.
   GCPtrLivenessData RevisedLivenessData;
   computeLiveInValues(DT, F, RevisedLivenessData, GC);
+  SmallVector<StatepointLiveSetTy, 0> LiveSets(records.size());
+  findLiveSetsAtCalls(toUpdate, RevisedLivenessData, LiveSets, GC);
   for (size_t i = 0; i < records.size(); i++) {
-    struct PartiallyConstructedSafepointRecord &info = records[i];
-    recomputeLiveInValues(RevisedLivenessData, toUpdate[i], info, PointerToBase,
-                          GC);
+    // We may have base pointers which are now live that weren't before.  We
+    // need to update the PointerToBase structure to reflect this.
+    for (auto *V : LiveSets[i])
+      PointerToBase.insert({V, V});
+    records[i].LiveSet = std::move(LiveSets[i]);
   }
 }
 
@@ -2118,27 +2114,32 @@ static void relocationViaAlloca(
     // We pre-record the uses of allocas so that we dont have to worry about
     // later update that changes the user information..
 
-    SmallVector<Instruction *, 20> Uses;
+    SmallVector<Use *, 20> Uses;
     // PERF: trade a linear scan for repeated reallocation
     Uses.reserve(Def->getNumUses());
-    for (User *U : Def->users()) {
-      if (!isa<ConstantExpr>(U)) {
+    for (Use &U : Def->uses()) {
+      if (!isa<ConstantExpr>(U.getUser())) {
         // If the def has a ConstantExpr use, then the def is either a
         // ConstantExpr use itself or null.  In either case
         // (recursively in the first, directly in the second), the oop
         // it is ultimately dependent on is null and this particular
         // use does not need to be fixed up.
-        Uses.push_back(cast<Instruction>(U));
+        Uses.push_back(&U);
       }
     }
 
-    llvm::sort(Uses);
-    auto Last = llvm::unique(Uses);
-    Uses.erase(Last, Uses.end());
+    // Group the uses by user, so each user gets a single load.  Statepoints
+    // can use many values, so the uses are rewritten directly rather than by
+    // scanning every operand of the user for each value.
+    llvm::stable_sort(Uses, [](const Use *A, const Use *B) {
+      return A->getUser() < B->getUser();
+    });
 
-    for (Instruction *Use : Uses) {
-      if (isa<PHINode>(Use)) {
-        PHINode *Phi = cast<PHINode>(Use);
+    for (auto It = Uses.begin(), End = Uses.end(); It != End;) {
+      auto *UserI = cast<Instruction>((*It)->getUser());
+      auto GroupEnd = std::find_if(
+          It, End, [&](const Use *U) { return U->getUser() != UserI; });
+      if (auto *Phi = dyn_cast<PHINode>(UserI)) {
         for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
           if (Def == Phi->getIncomingValue(i)) {
             // Use Def's type since the alloca was created with that type.
@@ -2151,9 +2152,11 @@ static void relocationViaAlloca(
       } else {
         // Use Def's type since the alloca was created with that type.
         LoadInst *Load =
-            new LoadInst(Def->getType(), Alloca, "", Use->getIterator());
-        Use->replaceUsesOfWith(Def, Load);
+            new LoadInst(Def->getType(), Alloca, "", UserI->getIterator());
+        for (Use *U : make_range(It, GroupEnd))
+          U->set(Load);
       }
+      It = GroupEnd;
     }
 
     // Emit store for the initial gc value.  Store must be inserted after load,
@@ -2229,11 +2232,10 @@ static void findLiveReferences(
     GCStrategy *GC) {
   GCPtrLivenessData OriginalLivenessData;
   computeLiveInValues(DT, F, OriginalLivenessData, GC);
-  for (size_t i = 0; i < records.size(); i++) {
-    struct PartiallyConstructedSafepointRecord &info = records[i];
-    analyzeParsePointLiveness(Opts, DT, OriginalLivenessData, toUpdate[i], info,
-                              GC);
-  }
+  SmallVector<StatepointLiveSetTy, 0> LiveSets(records.size());
+  findLiveSetsAtCalls(toUpdate, OriginalLivenessData, LiveSets, GC);
+  for (size_t i = 0; i < records.size(); i++)
+    analyzeParsePointLiveness(Opts, toUpdate[i], LiveSets[i], records[i]);
 }
 
 // Helper function for the "rematerializeLiveValues". It walks use chain
@@ -3324,36 +3326,37 @@ static void computeLiveInValues(DominatorTree &DT, Function &F,
 #endif
 }
 
-static void findLiveSetAtInst(Instruction *Inst, GCPtrLivenessData &Data,
-                              StatepointLiveSetTy &Out, GCStrategy *GC) {
-  BasicBlock *BB = Inst->getParent();
+static void findLiveSetsAtCalls(ArrayRef<CallBase *> Calls,
+                                GCPtrLivenessData &Data,
+                                MutableArrayRef<StatepointLiveSetTy> Out,
+                                GCStrategy *GC) {
+  assert(Calls.size() == Out.size() && "one live set per call");
+  // Group the calls by block so each block is walked once, from its end up to
+  // its topmost call, rather than once per call.
+  DenseMap<Instruction *, unsigned> CallIndex;
+  MapVector<BasicBlock *, unsigned> CallsInBlock;
+  for (auto [Idx, Call] : enumerate(Calls)) {
+    [[maybe_unused]] bool Inserted = CallIndex.try_emplace(Call, Idx).second;
+    assert(Inserted && "duplicate call");
+    ++CallsInBlock[Call->getParent()];
+  }
 
-  // Note: The copy is intentional and required
-  assert(Data.LiveOut.count(BB));
-  SetVector<Value *> LiveOut = Data.LiveOut[BB];
-
-  // We want to handle the statepoint itself oddly.  It's
-  // call result is not live (normal), nor are it's arguments
-  // (unless they're used again later).  This adjustment is
-  // specifically what we need to relocate
-  computeLiveInValues(BB->rbegin(), ++Inst->getIterator().getReverse(), LiveOut,
-                      GC);
-  LiveOut.remove(Inst);
-  Out.insert_range(LiveOut);
-}
-
-static void recomputeLiveInValues(GCPtrLivenessData &RevisedLivenessData,
-                                  CallBase *Call,
-                                  PartiallyConstructedSafepointRecord &Info,
-                                  PointerToBaseTy &PointerToBase,
-                                  GCStrategy *GC) {
-  StatepointLiveSetTy Updated;
-  findLiveSetAtInst(Call, RevisedLivenessData, Updated, GC);
-
-  // We may have base pointers which are now live that weren't before.  We need
-  // to update the PointerToBase structure to reflect this.
-  for (auto *V : Updated)
-    PointerToBase.insert({ V, V });
-
-  Info.LiveSet = Updated;
+  for (auto [BB, NumCalls] : CallsInBlock) {
+    // Note: The copy is intentional and required
+    assert(Data.LiveOut.count(BB));
+    SetVector<Value *> Live = Data.LiveOut[BB];
+    for (Instruction &I : reverse(*BB)) {
+      // The live set at a call includes the GC pointers it uses, but not the
+      // value it defines.
+      computeLiveInValues(I.getReverseIterator(),
+                          std::next(I.getReverseIterator()), Live, GC);
+      if (auto It = CallIndex.find(&I); It != CallIndex.end()) {
+        assert(!Live.contains(&I) && "call result live before its definition");
+        Out[It->second].insert_range(Live);
+        if (--NumCalls == 0)
+          break;
+      }
+    }
+    assert(NumCalls == 0 && "call not found in its parent block");
+  }
 }
